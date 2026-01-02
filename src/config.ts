@@ -15,5 +15,11 @@ export const endpoints = {
         all: `${API_BASE_URL}/products`,
         updateStatus: (id: number) => `${API_BASE_URL}/products/${id}/status`,
         getById: (id: number | string) => `${API_BASE_URL}/products/${id}`,
+        skuAttributes: (id: number | string) => `${API_BASE_URL}/products/${id}/sku-attributes`,
+        images: {
+            upload: (id: number | string) => `${API_BASE_URL}/products/${id}/images`,
+            delete: (productId: number | string, imageId: number | string) => `${API_BASE_URL}/products/${productId}/images/${imageId}`,
+            update: (productId: number | string, imageId: number | string) => `${API_BASE_URL}/products/${productId}/images/${imageId}`,
+        }
     }
 };

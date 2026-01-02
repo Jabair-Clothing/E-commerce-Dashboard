@@ -1,14 +1,16 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Save, Plus, Trash2, Upload } from 'lucide-react';
+import { ArrowLeft, Save, Plus, Trash2, Upload, Star, GripVertical } from 'lucide-react';
 import { endpoints } from '../config';
 import { useAuth } from '../context/AuthContext';
+import { Reorder, useDragControls } from 'framer-motion';
 
 interface ProductImage {
     id: number;
     url: string;
     is_primary: boolean;
+    sort_order?: number;
 }
 
 interface SkuAttribute {
@@ -19,6 +21,14 @@ interface SkuAttribute {
     value_code: string | null;
     product_image_id: number | null;
     image_url: string | null;
+}
+
+// Interface for the SKU Attributes API response
+interface SkuAttributeOption {
+    sku_attribute_id: number;
+    attribute_name: string;
+    value_name: string;
+    product_image_id: number | null;
 }
 
 interface ProductSku {
@@ -64,6 +74,55 @@ interface ParentCategory {
     image_url: string | null;
 }
 
+// Draggable Image Card Component
+const DraggableImageCard = ({ img, onSetPrimary, onDelete }: { img: ProductImage, onSetPrimary: (id: number) => void, onDelete: (id: number) => void }) => {
+    const controls = useDragControls();
+
+    return (
+        <Reorder.Item
+            value={img}
+            dragListener={false}
+            dragControls={controls}
+            className="relative group aspect-square rounded-lg border border-gray-200 overflow-hidden bg-white shadow-sm"
+        >
+            <img src={img.url} alt="Product" className="w-full h-full object-cover" />
+
+            {/* Primary Badge */}
+            {img.is_primary && (
+                <div className="absolute top-2 left-2 bg-primary-600 text-white text-xs px-2 py-1 rounded shadow-sm z-10">Primary</div>
+            )}
+
+            {/* Drag Handle */}
+            <div
+                className="absolute top-2 right-2 bg-white/80 p-1 rounded cursor-grab active:cursor-grabbing hover:bg-white transition-colors z-10"
+                onPointerDown={(e) => controls.start(e)}
+            >
+                <GripVertical className="h-4 w-4 text-gray-600" />
+            </div>
+
+            {/* Hover Actions */}
+            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                {!img.is_primary && (
+                    <button
+                        onClick={() => onSetPrimary(img.id)}
+                        className="p-2 bg-white rounded-full text-yellow-500 hover:bg-yellow-50 hover:text-yellow-600 transition-colors"
+                        title="Set as Primary"
+                    >
+                        <Star className="h-4 w-4" />
+                    </button>
+                )}
+                <button
+                    onClick={() => onDelete(img.id)}
+                    className="p-2 bg-white rounded-full text-red-600 hover:bg-red-50 hover:text-red-700 transition-colors"
+                    title="Delete Image"
+                >
+                    <Trash2 className="h-4 w-4" />
+                </button>
+            </div>
+        </Reorder.Item>
+    );
+};
+
 export const ProductDetails: React.FC = () => {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
@@ -72,7 +131,10 @@ export const ProductDetails: React.FC = () => {
     const [product, setProduct] = useState<ProductDetails | null>(null);
     const [parentCategories, setParentCategories] = useState<ParentCategory[]>([]);
     const [categories, setCategories] = useState<Category[]>([]);
+    const [skuAttributes, setSkuAttributes] = useState<SkuAttributeOption[]>([]);
     const [saving, setSaving] = useState(false);
+    const [uploading, setUploading] = useState(false);
+    const [selectedSkuAttrId, setSelectedSkuAttrId] = useState<number | ''>('');
 
     // Form state
     const [formData, setFormData] = useState({
@@ -84,9 +146,72 @@ export const ProductDetails: React.FC = () => {
         category_id: 0,
     });
 
+    // Function to fetch product data (reusable for updates)
+    const fetchProduct = async () => {
+        if (!id || !token) return;
+        try {
+            const headers: HeadersInit = {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`,
+            };
+            const response = await fetch(endpoints.products.getById(id), { headers });
+            const data = await response.json();
+            if (data.success) {
+                const p = data.data;
+                // Sort images by sort_order
+                p.images.sort((a: ProductImage, b: ProductImage) => (a.sort_order || 999) - (b.sort_order || 999));
+                setProduct(p);
+                setFormData({
+                    name: p.name,
+                    description: p.description || '',
+                    short_description: p.short_description || '',
+                    base_price: p.price,
+                    parent_category_id: p.parent_category?.id || 0,
+                    category_id: p.category?.id || 0,
+                });
+            }
+        } catch (error) {
+            console.error('Error fetching product:', error);
+        }
+    };
+
+    const fetchSkuAttributes = async () => {
+        if (!id || !token) return;
+        try {
+            const headers: HeadersInit = {
+                'Authorization': `Bearer ${token}`,
+            };
+            const response = await fetch(endpoints.products.skuAttributes(id), { headers });
+            const data = await response.json();
+            if (data.success) {
+                // Flatten the structured response to get a list of all attribute options
+                // The API returns [{ sku_id, attributes: [{ sku_attribute_id, attribute_name, value_name }] }]
+                // We want to extract all unique mappable attributes? Or list by SKU?
+                // The user's goal is "assign in the sku_attribute_id". A SKU Attribute ID is unique to a SKU's attribute value.
+                // So we can list them like: "SKU-CODE - Size: S", "SKU-CODE - Color: Red"
+
+                const options: SkuAttributeOption[] = [];
+                data.data.forEach((skuItem: any) => {
+                    skuItem.attributes.forEach((attr: any) => {
+                        options.push({
+                            sku_attribute_id: attr.sku_attribute_id,
+                            attribute_name: attr.attribute_name,
+                            value_name: attr.value_name,
+                            product_image_id: attr.product_image_id
+                        });
+                    });
+                });
+                setSkuAttributes(options);
+            }
+        } catch (error) {
+            console.error('Error fetching SKU attributes:', error);
+        }
+    };
+
     useEffect(() => {
-        const fetchData = async () => {
+        const init = async () => {
             if (!id || !token) return;
+            setLoading(true);
 
             try {
                 const headers: HeadersInit = {
@@ -94,47 +219,31 @@ export const ProductDetails: React.FC = () => {
                     'Authorization': `Bearer ${token}`,
                 };
 
-                // Fetch Product
-                const productRes = await fetch(endpoints.products.getById(id), { headers });
-                const productData = await productRes.json();
+                await Promise.all([
+                    fetchProduct(),
+                    fetchSkuAttributes(),
+                ]);
 
-                // Fetch Parent Categories
-                const parentsRes = await fetch(endpoints.categories.parents, { headers });
+                // Fetch data for dropdowns
+                const [parentsRes, categoriesRes] = await Promise.all([
+                    fetch(endpoints.categories.parents, { headers }),
+                    fetch(endpoints.categories.all, { headers })
+                ]);
+
                 const parentsData = await parentsRes.json();
-
-                // Fetch Categories
-                const categoriesRes = await fetch(endpoints.categories.all, { headers });
                 const categoriesData = await categoriesRes.json();
 
-                if (productData.success) {
-                    const p = productData.data;
-                    setProduct(p);
-                    setFormData({
-                        name: p.name,
-                        description: p.description || '',
-                        short_description: p.short_description || '',
-                        base_price: p.price,
-                        parent_category_id: p.parent_category?.id || 0,
-                        category_id: p.category?.id || 0,
-                    });
-                }
-
-                if (parentsData.success) {
-                    setParentCategories(parentsData.data);
-                }
-
-                if (categoriesData.success) {
-                    setCategories(categoriesData.data);
-                }
+                if (parentsData.success) setParentCategories(parentsData.data);
+                if (categoriesData.success) setCategories(categoriesData.data);
 
             } catch (error) {
-                console.error('Error fetching data:', error);
+                console.error('Error initializing:', error);
             } finally {
                 setLoading(false);
             }
         };
 
-        fetchData();
+        init();
     }, [id, token]);
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -148,34 +257,29 @@ export const ProductDetails: React.FC = () => {
     const handleSave = async () => {
         if (!id || !token) return;
         setSaving(true);
-
         try {
             const headers: HeadersInit = {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${token}`,
             };
 
-            const response = await fetch(endpoints.products.getById(id), { // URL is same for GET and PUT usually in REST
-                method: 'PUT', // Assuming PUT for update, user didn't specify method but body suggests update
+            const response = await fetch(endpoints.products.getById(id), {
+                method: 'PUT',
                 headers,
                 body: JSON.stringify({
                     ...formData,
-                    base_price: parseFloat(formData.base_price), // Ensure number
+                    base_price: parseFloat(formData.base_price),
                     parent_category_id: Number(formData.parent_category_id),
                     category_id: Number(formData.category_id),
                 }),
             });
 
             const data = await response.json();
-
             if (data.success) {
-                console.log('Product updated successfully');
                 alert('Product updated successfully!');
             } else {
-                console.error('Failed to update product:', data.message);
                 alert(`Failed to update: ${data.message}`);
             }
-
         } catch (error) {
             console.error('Error updating product:', error);
             alert('An error occurred while saving.');
@@ -184,13 +288,139 @@ export const ProductDetails: React.FC = () => {
         }
     };
 
-    if (loading) {
-        return <div className="p-6">Loading...</div>;
-    }
+    // Image Management Functions
+    const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file || !id || !token) return;
 
-    if (!product) {
-        return <div className="p-6">Product not found</div>;
-    }
+        setUploading(true);
+        try {
+            const formData = new FormData();
+            formData.append('image', file);
+            if (selectedSkuAttrId) {
+                formData.append('product_sku_attribute_id', String(selectedSkuAttrId));
+            }
+            // If not selected, we don't append it, or backend handles null.
+
+            const response = await fetch(endpoints.products.images.upload(id), {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                },
+                body: formData,
+            });
+
+            const data = await response.json();
+            if (data.success || response.ok) {
+                await fetchProduct(); // Reload to see new image
+                await fetchSkuAttributes(); // Reload to see if attribute image status changed
+                alert('Image uploaded successfully');
+                setSelectedSkuAttrId(''); // Reset selection
+            } else {
+                alert(`Upload failed: ${data.message}`);
+            }
+        } catch (error) {
+            console.error('Error uploading image:', error);
+            alert('Error uploading image');
+        } finally {
+            setUploading(false);
+            // Reset input
+            event.target.value = '';
+        }
+    };
+
+    const handleDeleteImage = async (imageId: number) => {
+        if (!id || !token || !confirm('Are you sure you want to delete this image?')) return;
+        try {
+            const response = await fetch(endpoints.products.images.delete(id, imageId), {
+                method: 'DELETE',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                },
+            });
+            const data = await response.json();
+            if (data.success || response.ok) {
+                if (product) {
+                    setProduct({
+                        ...product,
+                        images: product.images.filter(img => img.id !== imageId)
+                    });
+                }
+            } else {
+                alert(`Delete failed: ${data.message}`);
+            }
+        } catch (error) {
+            console.error('Error deleting image:', error);
+        }
+    };
+
+    const handleSetPrimary = async (imageId: number) => {
+        if (!id || !token) return;
+        try {
+            const response = await fetch(endpoints.products.images.update(id, imageId), {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`,
+                },
+                body: JSON.stringify({ is_primary: true }),
+            });
+
+            if (response.ok) {
+                // Update local state
+                if (product) {
+                    setProduct({
+                        ...product,
+                        images: product.images.map(img => ({
+                            ...img,
+                            is_primary: img.id === imageId
+                        }))
+                    });
+                }
+            } else {
+                alert('Failed to set primary image');
+            }
+        } catch (error) {
+            console.error('Error setting primary image:', error);
+        }
+    };
+
+    // Reorder Logic
+    const handleReorder = async (newOrder: ProductImage[]) => {
+        if (!product || !id || !token) return;
+
+        // Optimistic update
+        setProduct({ ...product, images: newOrder });
+
+        try {
+            const updates = newOrder.map((img, index) => {
+                const newSortOrder = index + 1;
+                // Only send request for images that actually changed order, but sending all is safer for consistency
+                return fetch(endpoints.products.images.update(id, img.id), {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`,
+                    },
+                    body: JSON.stringify({ sort_order: newSortOrder }),
+                });
+            });
+
+            await Promise.all(updates);
+            console.log('Order updated');
+
+        } catch (error) {
+            console.error('Error reordering images:', error);
+            alert('Failed to save image order');
+            fetchProduct(); // Revert on error
+        }
+    };
+
+    if (loading) return <div className="p-6">Loading...</div>;
+    if (!product) return <div className="p-6">Product not found</div>;
+
+    const inputClasses = "w-full px-4 py-2 rounded-lg border border-gray-200 focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 transition-all duration-200 bg-gray-50 focus:bg-white outline-none";
+    const labelClasses = "block text-sm font-medium text-gray-700 mb-1.5";
 
     return (
         <div className="space-y-6 max-w-7xl mx-auto pb-10">
@@ -233,31 +463,31 @@ export const ProductDetails: React.FC = () => {
                         <h2 className="text-lg font-semibold text-gray-900 mb-4">Basic Information</h2>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div className="space-y-2">
-                                <label className="block text-sm font-medium text-gray-700">Product Name</label>
+                                <label className={labelClasses}>Product Name</label>
                                 <input
                                     type="text"
                                     name="name"
                                     value={formData.name}
                                     onChange={handleInputChange}
-                                    className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                                    className={inputClasses}
                                 />
                             </div>
                             <div className="space-y-2">
-                                <label className="block text-sm font-medium text-gray-700">Slug</label>
+                                <label className={labelClasses}>Slug</label>
                                 <input
                                     type="text"
                                     defaultValue={product.slug}
-                                    className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm bg-gray-50"
+                                    className={`${inputClasses} bg-gray-100 text-gray-500 cursor-not-allowed focus:bg-gray-100`}
                                     readOnly
                                 />
                             </div>
                             <div className="space-y-2">
-                                <label className="block text-sm font-medium text-gray-700">Parent Category</label>
+                                <label className={labelClasses}>Parent Category</label>
                                 <select
                                     name="parent_category_id"
                                     value={formData.parent_category_id}
                                     onChange={handleInputChange}
-                                    className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                                    className={inputClasses}
                                 >
                                     <option value={0}>Select Parent Category</option>
                                     {parentCategories.map(pc => (
@@ -266,12 +496,12 @@ export const ProductDetails: React.FC = () => {
                                 </select>
                             </div>
                             <div className="space-y-2">
-                                <label className="block text-sm font-medium text-gray-700">Category</label>
+                                <label className={labelClasses}>Category</label>
                                 <select
                                     name="category_id"
                                     value={formData.category_id}
                                     onChange={handleInputChange}
-                                    className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                                    className={inputClasses}
                                 >
                                     <option value={0}>Select Category</option>
                                     {categories
@@ -282,43 +512,43 @@ export const ProductDetails: React.FC = () => {
                                 </select>
                             </div>
                             <div className="space-y-2">
-                                <label className="block text-sm font-medium text-gray-700">Base Price (৳)</label>
+                                <label className={labelClasses}>Base Price (৳)</label>
                                 <input
                                     type="number"
                                     name="base_price"
                                     value={formData.base_price}
                                     onChange={handleInputChange}
-                                    className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                                    className={inputClasses}
                                 />
                             </div>
                             <div className="space-y-2">
-                                <label className="block text-sm font-medium text-gray-700">Total Stock</label>
+                                <label className={labelClasses}>Total Stock</label>
                                 <input
                                     type="text"
                                     defaultValue={product.stock_quantity}
-                                    className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm bg-gray-50"
+                                    className={`${inputClasses} bg-gray-100 text-gray-500 cursor-not-allowed focus:bg-gray-100`}
                                     readOnly
                                 />
                             </div>
                         </div>
                         <div className="mt-6 space-y-2">
-                            <label className="block text-sm font-medium text-gray-700">Short Description</label>
+                            <label className={labelClasses}>Short Description</label>
                             <textarea
                                 rows={2}
                                 name="short_description"
                                 value={formData.short_description}
                                 onChange={handleInputChange}
-                                className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                                className={inputClasses}
                             />
                         </div>
                         <div className="mt-6 space-y-2">
-                            <label className="block text-sm font-medium text-gray-700">Description</label>
+                            <label className={labelClasses}>Description</label>
                             <textarea
                                 rows={4}
                                 name="description"
                                 value={formData.description}
                                 onChange={handleInputChange}
-                                className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                                className={inputClasses}
                             />
                         </div>
                     </div>
@@ -382,25 +612,65 @@ export const ProductDetails: React.FC = () => {
                 {/* Sidebar - Images & Status */}
                 <div className="space-y-6">
                     <div className="bg-white rounded-xl shadow-sm ring-1 ring-gray-200 p-6">
-                        <h2 className="text-lg font-semibold text-gray-900 mb-4">Product Images</h2>
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="flex items-center justify-between mb-4">
+                            <h2 className="text-lg font-semibold text-gray-900">Product Images</h2>
+                            <span className="text-xs text-gray-500">Drag to reorder</span>
+                        </div>
+
+                        <Reorder.Group
+                            axis="y"
+                            values={product.images}
+                            onReorder={handleReorder}
+                            className="grid grid-cols-2 gap-4"
+                        >
                             {product.images.map((img) => (
-                                <div key={img.id} className="relative group aspect-square rounded-lg border border-gray-200 overflow-hidden">
-                                    <img src={img.url} alt="Product" className="w-full h-full object-cover" />
-                                    {img.is_primary && (
-                                        <div className="absolute top-2 left-2 bg-primary-600 text-white text-xs px-2 py-1 rounded">Primary</div>
-                                    )}
-                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                                        <button className="p-1 bg-white rounded-full text-red-600 hover:bg-red-50">
-                                            <Trash2 className="h-4 w-4" />
-                                        </button>
-                                    </div>
-                                </div>
+                                <DraggableImageCard
+                                    key={img.id}
+                                    img={img}
+                                    onSetPrimary={handleSetPrimary}
+                                    onDelete={handleDeleteImage}
+                                />
                             ))}
-                            <button className="aspect-square rounded-lg border-2 border-dashed border-gray-300 hover:border-primary-500 hover:bg-gray-50 flex flex-col items-center justify-center text-gray-400 hover:text-primary-600 transition-colors">
-                                <Upload className="h-6 w-6 mb-2" />
-                                <span className="text-xs font-medium">Upload New</span>
-                            </button>
+                        </Reorder.Group>
+
+                        <div className="mt-4 space-y-3">
+                            <div>
+                                <label className="block text-xs font-medium text-gray-700 mb-1">
+                                    Link to Variant (Optional)
+                                </label>
+                                <select
+                                    value={selectedSkuAttrId}
+                                    onChange={(e) => setSelectedSkuAttrId(Number(e.target.value) || '')}
+                                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 text-sm"
+                                >
+                                    <option value="">None (General Image)</option>
+                                    {skuAttributes.map((attr) => (
+                                        <option key={attr.sku_attribute_id} value={attr.sku_attribute_id}>
+                                            {attr.attribute_name}: {attr.value_name}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div>
+                                <input
+                                    type="file"
+                                    id="image-upload"
+                                    accept="image/*"
+                                    className="hidden"
+                                    onChange={handleImageUpload}
+                                    disabled={uploading}
+                                />
+                                <label
+                                    htmlFor="image-upload"
+                                    className={`flex flex-col items-center justify-center p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-primary-500 hover:bg-gray-50 transition-colors cursor-pointer ${uploading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                >
+                                    <Upload className="h-6 w-6 text-gray-400 mb-2" />
+                                    <span className="text-sm font-medium text-gray-600">
+                                        {uploading ? 'Uploading...' : 'Click to Upload New Image'}
+                                    </span>
+                                </label>
+                            </div>
                         </div>
                     </div>
 

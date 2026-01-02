@@ -6,5 +6,9 @@ export const endpoints = {
     categories: {
         all: `${API_BASE_URL}/categories`,
         parents: `${API_BASE_URL}/categories/parents`,
+    },
+    attributes: {
+        all: `${API_BASE_URL}/attributes`,
+        values: `${API_BASE_URL}/attribute-values`,
     }
 };

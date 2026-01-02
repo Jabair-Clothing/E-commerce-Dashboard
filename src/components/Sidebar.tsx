@@ -9,12 +9,16 @@ const sidebarItems = [
     { icon: Layers, label: 'Categories', path: '/categories' },
 ];
 
+import { useAuth } from '../context/AuthContext';
+
 interface SidebarProps {
     isOpen: boolean;
     onClose: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
+    const { logout } = useAuth();
+
     return (
         <>
             {/* Mobile Overlay */}
@@ -65,7 +69,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                 </nav>
 
                 <div className="border-t border-gray-200 p-4">
-                    <button className="flex w-full items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors">
+                    <button
+                        onClick={logout}
+                        className="flex w-full items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors"
+                    >
                         <LogOut className="h-5 w-5" />
                         Logout
                     </button>

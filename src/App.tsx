@@ -4,6 +4,7 @@ import { ProtectedRoute } from './components/ProtectedRoute';
 import { DashboardLayout } from './layouts/DashboardLayout';
 import { Login } from './pages/Login';
 import { Dashboard } from './pages/Dashboard';
+import { ProductDetails } from './pages/ProductDetails';
 import { Products } from './pages/Products';
 import { Categories } from './pages/Categories';
 import { Attributes } from './pages/Attributes';
@@ -23,15 +24,16 @@ function App() {
           }>
             <Route index element={<Dashboard />} />
             <Route path="products" element={<Products />} />
+            <Route path="products/:id" element={<ProductDetails />} />
             <Route path="categories" element={<Categories />} />
             <Route path="attributes" element={<Attributes />} />
             <Route path="profile" element={<Profile />} />
           </Route>
 
           <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </Router>
-    </AuthProvider>
+        </Routes >
+      </Router >
+    </AuthProvider >
   );
 }
 

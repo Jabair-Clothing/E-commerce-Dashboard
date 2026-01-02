@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Plus, Search, Edit, Trash2 } from 'lucide-react';
 import { endpoints } from '../config';
 import { useAuth } from '../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
 
 interface Product {
     id: number;
@@ -38,6 +39,7 @@ interface ApiResponse {
 }
 
 export const Products: React.FC = () => {
+    const navigate = useNavigate();
     const { token } = useAuth();
     const [products, setProducts] = useState<Product[]>([]);
     const [loading, setLoading] = useState(true);
@@ -84,6 +86,32 @@ export const Products: React.FC = () => {
 
         return () => clearTimeout(timer);
     }, [searchTerm]);
+
+    const handleStatusToggle = async (id: number) => {
+        try {
+            const url = endpoints.products.updateStatus(id);
+            const headers: HeadersInit = {
+                'Content-Type': 'application/json',
+                ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            };
+
+            const response = await fetch(url, {
+                method: 'PATCH',
+                headers,
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                // Update the product status in the local state
+                setProducts(products.map(product =>
+                    product.id === id ? { ...product, is_active: !product.is_active } : product
+                ));
+            }
+        } catch (error) {
+            console.error('Error updating status:', error);
+        }
+    };
 
     const handlePageChange = (page: number) => {
         if (page >= 1 && page <= totalPages) {
@@ -168,13 +196,21 @@ export const Products: React.FC = () => {
                                             <div className="text-sm text-gray-500">{product.stock_quantity} units</div>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
-                                            <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${product.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                                            <button
+                                                onClick={() => handleStatusToggle(product.id)}
+                                                className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium cursor-pointer transition-colors ${product.is_active ? 'bg-green-100 text-green-800 hover:bg-green-200' : 'bg-red-100 text-red-800 hover:bg-red-200'}`}
+                                            >
                                                 {product.is_active ? 'Active' : 'Inactive'}
-                                            </span>
+                                            </button>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                             <div className="flex items-center justify-end gap-2">
-                                                <button className="text-gray-400 hover:text-primary-600 transition-colors"><Edit className="h-4 w-4" /></button>
+                                                <button
+                                                    onClick={() => navigate(`/products/${product.id}`)}
+                                                    className="text-gray-400 hover:text-primary-600 transition-colors"
+                                                >
+                                                    <Edit className="h-4 w-4" />
+                                                </button>
                                                 <button className="text-gray-400 hover:text-red-600 transition-colors"><Trash2 className="h-4 w-4" /></button>
                                             </div>
                                         </td>

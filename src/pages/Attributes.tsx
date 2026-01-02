@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from 'react';
-import { Plus, MoreHorizontal, Loader2, Edit, Trash2, X, Palette, Hash } from 'lucide-react';
+import React, { useState } from 'react';
+import { Plus, Loader2, Edit, Trash2, X, Palette, Hash } from 'lucide-react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { endpoints } from '../config';
 import type { Attribute, AttributeValue } from '../types/attribute';
 import { useAuth } from '../context/AuthContext';
@@ -27,14 +28,12 @@ const Modal: React.FC<{ isOpen: boolean; onClose: () => void; title: string; chi
 };
 
 export const Attributes: React.FC = () => {
+    const queryClient = useQueryClient();
     const { token } = useAuth();
-    const [attributes, setAttributes] = useState<Attribute[]>([]);
-    const [loading, setLoading] = useState(true);
 
     // Modal States
     const [isAttributeModalOpen, setIsAttributeModalOpen] = useState(false);
     const [isValueModalOpen, setIsValueModalOpen] = useState(false);
-    const [isSubmitting, setIsSubmitting] = useState(false);
 
     // Filter/Edit States
     const [editingAttribute, setEditingAttribute] = useState<Attribute | null>(null);
@@ -47,51 +46,25 @@ export const Attributes: React.FC = () => {
     const [valueCode, setValueCode] = useState('#000000');
     const [selectedAttributeId, setSelectedAttributeId] = useState<string>('');
 
-    // Fetch Attributes
-    const fetchAttributes = async () => {
-        if (!token) return;
-        try {
-            const response = await fetch(endpoints.attributes.all, {
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Accept': 'application/json',
-                },
+    // --- Queries ---
+    const { data: attributesData, isLoading } = useQuery({
+        queryKey: ['attributes'],
+        queryFn: async () => {
+            const res = await fetch(endpoints.attributes.all, {
+                headers: { 'Authorization': `Bearer ${token}` }
             });
-            const data = await response.json();
-            if (data.success) {
-                // If the API returns paginated data inside data.data
-                setAttributes(data.data.data || []);
-            }
-        } catch (error) {
-            console.error('Failed to fetch attributes', error);
-        } finally {
-            setLoading(false);
-        }
-    };
+            return res.json();
+        },
+        enabled: !!token,
+    });
 
-    useEffect(() => {
-        fetchAttributes();
-    }, [token]);
+    const attributes: Attribute[] = attributesData?.success ? (attributesData.data.data || []) : [];
 
-    // --- Attribute Handlers ---
+    // --- Mutations ---
 
-    const openAttributeModal = (attr?: Attribute) => {
-        if (attr) {
-            setEditingAttribute(attr);
-            setAttributeName(attr.name);
-        } else {
-            setEditingAttribute(null);
-            setAttributeName('');
-        }
-        setIsAttributeModalOpen(true);
-    };
-
-    const handleSaveAttribute = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!token) return;
-        setIsSubmitting(true);
-
-        try {
+    // Attribute Mutations
+    const saveAttributeMutation = useMutation({
+        mutationFn: async () => {
             const url = editingAttribute
                 ? `${endpoints.attributes.all}/${editingAttribute.id}`
                 : endpoints.attributes.all;
@@ -107,24 +80,21 @@ export const Attributes: React.FC = () => {
                 },
                 body: JSON.stringify({ name: attributeName })
             });
-
-            if (response.ok) {
+            return response.json();
+        },
+        onSuccess: (data) => {
+            if (data.success || data.id) { // Accept if success flag or ID returned
                 setIsAttributeModalOpen(false);
-                fetchAttributes();
+                queryClient.invalidateQueries({ queryKey: ['attributes'] });
             } else {
                 alert('Failed to save attribute');
             }
-        } catch (error) {
-            console.error(error);
-            alert('An error occurred');
-        } finally {
-            setIsSubmitting(false);
-        }
-    };
+        },
+        onError: () => alert('An error occurred')
+    });
 
-    const handleDeleteAttribute = async (id: number) => {
-        if (!token || !window.confirm('Delete this attribute?')) return;
-        try {
+    const deleteAttributeMutation = useMutation({
+        mutationFn: async (id: number) => {
             const response = await fetch(`${endpoints.attributes.all}/${id}`, {
                 method: 'DELETE',
                 headers: {
@@ -132,11 +102,99 @@ export const Attributes: React.FC = () => {
                     'Accept': 'application/json',
                 },
             });
-            if (response.ok) fetchAttributes();
-        } catch (e) {
-            console.error(e);
-            alert('Failed to delete');
+            if (!response.ok) throw new Error('Failed');
+            return response.json();
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['attributes'] });
+        },
+        onError: () => alert('Failed to delete')
+    });
+
+    // Value Mutations
+    const saveValueMutation = useMutation({
+        mutationFn: async () => {
+            const url = editingValue
+                ? `${endpoints.attributes.values}/${editingValue.id}`
+                : endpoints.attributes.values;
+
+            const method = editingValue ? 'PUT' : 'POST';
+
+            const body: any = {
+                name: valueName,
+            };
+
+            if (!editingValue) {
+                body.attribute_id = selectedAttributeId;
+            }
+
+            if (valueCode) {
+                body.code = valueCode;
+            }
+
+            const response = await fetch(url, {
+                method,
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                },
+                body: JSON.stringify(body)
+            });
+            return response.json();
+        },
+        onSuccess: (data) => {
+            if (data.success || data.id) {
+                setIsValueModalOpen(false);
+                queryClient.invalidateQueries({ queryKey: ['attributes'] });
+            } else {
+                alert('Failed to save value');
+            }
+        },
+        onError: () => alert('An error occurred')
+    });
+
+    const deleteValueMutation = useMutation({
+        mutationFn: async (id: number) => {
+            const response = await fetch(`${endpoints.attributes.values}/${id}`, {
+                method: 'DELETE',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Accept': 'application/json',
+                },
+            });
+            if (!response.ok) throw new Error('Failed');
+            return response.json();
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['attributes'] });
+        },
+        onError: () => alert('Failed to delete')
+    });
+
+
+    // --- Attribute Handlers ---
+
+    const openAttributeModal = (attr?: Attribute) => {
+        if (attr) {
+            setEditingAttribute(attr);
+            setAttributeName(attr.name);
+        } else {
+            setEditingAttribute(null);
+            setAttributeName('');
         }
+        setIsAttributeModalOpen(true);
+    };
+
+    const handleSaveAttribute = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!token) return;
+        saveAttributeMutation.mutate();
+    };
+
+    const handleDeleteAttribute = (id: number) => {
+        if (!token || !window.confirm('Delete this attribute?')) return;
+        deleteAttributeMutation.mutate(id);
     };
 
     // --- Attribute Value Handlers ---
@@ -164,77 +222,19 @@ export const Attributes: React.FC = () => {
         setIsValueModalOpen(true);
     };
 
-    const handleSaveValue = async (e: React.FormEvent) => {
+    const handleSaveValue = (e: React.FormEvent) => {
         e.preventDefault();
         if (!token) return;
-        setIsSubmitting(true);
-
-        try {
-            const url = editingValue
-                ? `${endpoints.attributes.values}/${editingValue.id}`
-                : endpoints.attributes.values;
-
-            const method = editingValue ? 'PUT' : 'POST';
-
-            const body: any = {
-                name: valueName,
-            };
-
-            if (!editingValue) {
-                body.attribute_id = selectedAttributeId;
-            }
-
-            // If selected attribute is "Color" (or checking if code input is used), send code
-            // Or just always send code if it's set? User said 'code' can be null.
-            // Let's check if the selected attribute looks like "Color".
-            // Or better, just send it if it's not empty/default.
-            if (valueCode) {
-                body.code = valueCode;
-            }
-
-            const response = await fetch(url, {
-                method,
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                },
-                body: JSON.stringify(body)
-            });
-
-            if (response.ok) {
-                setIsValueModalOpen(false);
-                fetchAttributes();
-            } else {
-                alert('Failed to save value');
-            }
-        } catch (error) {
-            console.error(error);
-            alert('An error occurred');
-        } finally {
-            setIsSubmitting(false);
-        }
+        saveValueMutation.mutate();
     };
 
-    const handleDeleteValue = async (id: number) => {
+    const handleDeleteValue = (id: number) => {
         if (!token || !window.confirm('Delete this variation?')) return;
-        try {
-            const response = await fetch(`${endpoints.attributes.values}/${id}`, {
-                method: 'DELETE',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Accept': 'application/json',
-                },
-            });
-            if (response.ok) fetchAttributes();
-        } catch (e) {
-            console.error(e);
-            alert('Failed to delete');
-        }
+        deleteValueMutation.mutate(id);
     };
 
 
-    if (loading) {
+    if (isLoading) {
         return <div className="flex h-64 items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary-500" /></div>;
     }
 
@@ -355,10 +355,10 @@ export const Attributes: React.FC = () => {
                         <button type="button" onClick={() => setIsAttributeModalOpen(false)} className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg">Cancel</button>
                         <button
                             type="submit"
-                            disabled={isSubmitting}
+                            disabled={saveAttributeMutation.isPending}
                             className="px-4 py-2 text-sm bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50"
                         >
-                            {isSubmitting ? 'Saving...' : 'Save'}
+                            {saveAttributeMutation.isPending ? 'Saving...' : 'Save'}
                         </button>
                     </div>
                 </form>
@@ -426,10 +426,10 @@ export const Attributes: React.FC = () => {
                         <button type="button" onClick={() => setIsValueModalOpen(false)} className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg">Cancel</button>
                         <button
                             type="submit"
-                            disabled={isSubmitting}
+                            disabled={saveValueMutation.isPending}
                             className="px-4 py-2 text-sm bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50"
                         >
-                            {isSubmitting ? 'Saving...' : 'Save'}
+                            {saveValueMutation.isPending ? 'Saving...' : 'Save'}
                         </button>
                     </div>
                 </form>

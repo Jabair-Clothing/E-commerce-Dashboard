@@ -1,5 +1,5 @@
-
-import React, { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { Plus, Search, Edit, Trash2 } from 'lucide-react';
 import { endpoints } from '../config';
 import { useAuth } from '../context/AuthContext';
@@ -41,111 +41,88 @@ interface ApiResponse {
 export const Products: React.FC = () => {
     const navigate = useNavigate();
     const { token } = useAuth();
-    const [products, setProducts] = useState<Product[]>([]);
-    const [loading, setLoading] = useState(true);
+    const queryClient = useQueryClient();
     const [searchTerm, setSearchTerm] = useState('');
-    const [currentPage, setCurrentPage] = useState(1);
-    const [totalPages, setTotalPages] = useState(1);
-    const [totalItems, setTotalItems] = useState(0);
+    const [page, setPage] = useState(1);
 
-    const fetchProducts = async (page = 1, search = '') => {
-        setLoading(true);
-        try {
+    // Fetch Products
+    const { data: apiResponse, isLoading, isError } = useQuery({
+        queryKey: ['products', page, searchTerm],
+        queryFn: async () => {
             const url = new URL(endpoints.products.all);
             url.searchParams.append('page', page.toString());
-            if (search) {
-                url.searchParams.append('search', search);
+            if (searchTerm) {
+                url.searchParams.append('search', searchTerm);
             }
-
             const headers: HeadersInit = {
                 'Content-Type': 'application/json',
                 ...(token ? { Authorization: `Bearer ${token}` } : {}),
             };
-
             const response = await fetch(url.toString(), { headers });
-            const data: ApiResponse = await response.json();
+            if (!response.ok) throw new Error('Network response was not ok');
+            return response.json() as Promise<ApiResponse>;
+        },
+        placeholderData: keepPreviousData,
+        staleTime: 5000, // 5 seconds
+        enabled: !!token,
+    });
 
-            if (data.success) {
-                setProducts(data.data.data);
-                setCurrentPage(data.data.current_page);
-                setTotalPages(data.data.last_page);
-                setTotalItems(data.data.total);
-            }
-        } catch (error) {
-            console.error('Error fetching products:', error);
-        } finally {
-            setLoading(false);
-        }
-    };
+    const products = apiResponse?.data.data || [];
+    const totalPages = apiResponse?.data.last_page || 1;
+    const totalItems = apiResponse?.data.total || 0;
 
-    useEffect(() => {
-        // Debounce search
-        const timer = setTimeout(() => {
-            fetchProducts(1, searchTerm);
-        }, 500);
-
-        return () => clearTimeout(timer);
-    }, [searchTerm]);
-
-    const handleDeleteProduct = async (id: number) => {
-        if (!confirm('Are you sure you want to delete this product?')) return;
-
-        try {
+    // Delete Product
+    const deleteMutation = useMutation({
+        mutationFn: async (id: number) => {
             const url = endpoints.products.delete(id);
             const headers: HeadersInit = {
                 'Content-Type': 'application/json',
                 ...(token ? { Authorization: `Bearer ${token}` } : {}),
             };
+            const response = await fetch(url, { method: 'DELETE', headers });
+            return response.json();
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['products'] });
+            alert('Product deleted successfully');
+        },
+        onError: () => {
+            alert('Failed to delete product');
+        }
+    });
 
-            const response = await fetch(url, {
-                method: 'DELETE',
-                headers,
-            });
-
-            const data = await response.json();
-
-            if (data.success || response.ok) {
-                // Remove the product from the local state
-                setProducts(products.filter(product => product.id !== id));
-                setTotalItems(prev => prev - 1);
-            } else {
-                alert(`Failed to delete product: ${data.message}`);
-            }
-        } catch (error) {
-            console.error('Error deleting product:', error);
-            alert('An error occurred while deleting the product.');
+    const handleDeleteProduct = (id: number) => {
+        if (confirm('Are you sure you want to delete this product?')) {
+            deleteMutation.mutate(id);
         }
     };
 
-    const handleStatusToggle = async (id: number) => {
-        try {
+    // Toggle Status
+    const statusMutation = useMutation({
+        mutationFn: async (id: number) => {
             const url = endpoints.products.updateStatus(id);
             const headers: HeadersInit = {
                 'Content-Type': 'application/json',
                 ...(token ? { Authorization: `Bearer ${token}` } : {}),
             };
-
-            const response = await fetch(url, {
-                method: 'PATCH',
-                headers,
-            });
-
-            const data = await response.json();
-
-            if (data.success) {
-                // Update the product status in the local state
-                setProducts(products.map(product =>
-                    product.id === id ? { ...product, is_active: !product.is_active } : product
-                ));
-            }
-        } catch (error) {
-            console.error('Error updating status:', error);
+            const response = await fetch(url, { method: 'PATCH', headers });
+            return response.json();
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['products'] });
+        },
+        onError: () => {
+            alert('Failed to update status');
         }
+    });
+
+    const handleStatusToggle = (id: number) => {
+        statusMutation.mutate(id);
     };
 
-    const handlePageChange = (page: number) => {
-        if (page >= 1 && page <= totalPages) {
-            fetchProducts(page, searchTerm);
+    const handlePageChange = (newPage: number) => {
+        if (newPage >= 1 && newPage <= totalPages) {
+            setPage(newPage);
         }
     };
 
@@ -172,7 +149,10 @@ export const Products: React.FC = () => {
                             type="text"
                             placeholder="Search products..."
                             value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
+                            onChange={(e) => {
+                                setSearchTerm(e.target.value);
+                                setPage(1); // Reset to page 1 on search
+                            }}
                             className="block w-full rounded-lg border-gray-300 pl-10 focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
                         />
                     </div>
@@ -192,7 +172,7 @@ export const Products: React.FC = () => {
                             </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
-                            {loading ? (
+                            {isLoading ? (
                                 <tr>
                                     <td colSpan={7} className="px-6 py-4 text-center text-sm text-gray-500">Loading...</td>
                                 </tr>
@@ -263,15 +243,15 @@ export const Products: React.FC = () => {
                         <p>Showing {products.length} of {totalItems} results</p>
                         <div className="flex gap-2">
                             <button
-                                onClick={() => handlePageChange(currentPage - 1)}
-                                disabled={currentPage === 1}
+                                onClick={() => handlePageChange(page - 1)}
+                                disabled={page === 1}
                                 className="disabled:opacity-50 hover:text-gray-900"
                             >
                                 Previous
                             </button>
                             <button
-                                onClick={() => handlePageChange(currentPage + 1)}
-                                disabled={currentPage === totalPages}
+                                onClick={() => handlePageChange(page + 1)}
+                                disabled={page === totalPages}
                                 className="disabled:opacity-50 hover:text-gray-900"
                             >
                                 Next

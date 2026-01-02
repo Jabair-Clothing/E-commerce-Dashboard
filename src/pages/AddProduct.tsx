@@ -1,5 +1,6 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Save, Plus, Trash2, Upload, X } from 'lucide-react';
 import { endpoints } from '../config';
@@ -44,13 +45,45 @@ export const AddProduct: React.FC = () => {
     const navigate = useNavigate();
     const { token } = useAuth();
 
-    const [loading, setLoading] = useState(false);
-    const [saving, setSaving] = useState(false);
+    const queryClient = useQueryClient();
+    // fetching reference data
+    const { data: parentsData, isLoading: isLoadingParents } = useQuery({
+        queryKey: ['parentCategories'],
+        queryFn: async () => {
+            const headers: HeadersInit = { Authorization: `Bearer ${token}` };
+            const res = await fetch(endpoints.categories.parents, { headers });
+            return res.json();
+        },
+        enabled: !!token,
+        staleTime: 600000,
+    });
 
-    // Data for dropdowns
-    const [parentCategories, setParentCategories] = useState<ParentCategory[]>([]);
-    const [categories, setCategories] = useState<Category[]>([]);
-    const [attributes, setAttributes] = useState<Attribute[]>([]);
+    const { data: catsData, isLoading: isLoadingCategories } = useQuery({
+        queryKey: ['categories'],
+        queryFn: async () => {
+            const headers: HeadersInit = { Authorization: `Bearer ${token}` };
+            const res = await fetch(endpoints.categories.all, { headers });
+            return res.json();
+        },
+        enabled: !!token,
+        staleTime: 600000,
+    });
+
+    const { data: attrsData, isLoading: isLoadingAttributes } = useQuery({
+        queryKey: ['attributes'],
+        queryFn: async () => {
+            const headers: HeadersInit = { Authorization: `Bearer ${token}` };
+            const res = await fetch(endpoints.attributes.all, { headers });
+            return res.json();
+        },
+        enabled: !!token,
+        staleTime: 600000,
+    });
+
+    const parentCategories: ParentCategory[] = parentsData?.success ? parentsData.data : [];
+    const categories: Category[] = catsData?.success ? catsData.data : [];
+    const attributes: Attribute[] = attrsData?.success ? attrsData.data.data : [];
+
 
     // Form State
     const [formData, setFormData] = useState({
@@ -66,37 +99,6 @@ export const AddProduct: React.FC = () => {
 
     const [images, setImages] = useState<File[]>([]);
     const [variants, setVariants] = useState<Variant[]>([]);
-
-    useEffect(() => {
-        const fetchData = async () => {
-            if (!token) return;
-            setLoading(true);
-            try {
-                const headers: HeadersInit = { 'Authorization': `Bearer ${token}` };
-
-                const [parentsRes, catsRes, attrsRes] = await Promise.all([
-                    fetch(endpoints.categories.parents, { headers }),
-                    fetch(endpoints.categories.all, { headers }),
-                    fetch(endpoints.attributes.all, { headers })
-                ]);
-
-                const parentsData = await parentsRes.json();
-                const catsData = await catsRes.json();
-                const attrsData = await attrsRes.json();
-
-                if (parentsData.success) setParentCategories(parentsData.data);
-                if (catsData.success) setCategories(catsData.data);
-                if (attrsData.success) setAttributes(attrsData.data.data);
-
-            } catch (error) {
-                console.error('Error fetching data:', error);
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        fetchData();
-    }, [token]);
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
@@ -146,52 +148,8 @@ export const AddProduct: React.FC = () => {
         }));
     };
 
-    const handleSubmit = async () => {
-        if (!token) return;
-        setSaving(true);
-
-        try {
-            const data = new FormData();
-
-            // Basic Fields
-            data.append('name', formData.name);
-            data.append('description', formData.description);
-            if (formData.short_description) data.append('short_description', formData.short_description);
-            data.append('price', formData.price);
-            if (formData.discount_price) data.append('discount_price', formData.discount_price);
-            if (formData.parent_category_id) data.append('parent_category_id', formData.parent_category_id);
-            data.append('category_id', formData.category_id);
-
-            // If no variants, send simple quantity
-            if (variants.length === 0) {
-                data.append('quantity', formData.quantity);
-            }
-
-            // Images
-            images.forEach((img) => {
-                data.append('images[]', img);
-            });
-
-            // Variants
-            variants.forEach((variant, index) => {
-                // data.append(`variants[${index}][sku]`, variant.sku); // Optional, let backend generate if empty
-                if (variant.sku) data.append(`variants[${index}][sku]`, variant.sku);
-                data.append(`variants[${index}][price]`, variant.price);
-                data.append(`variants[${index}][quantity]`, variant.quantity);
-                if (variant.discount_price) data.append(`variants[${index}][discount_price]`, variant.discount_price);
-
-                if (variant.image) {
-                    data.append(`variants[${index}][image]`, variant.image);
-                }
-
-                // Attributes
-                // variants[0][attributes][0] = value_id
-                // Backend expects array of value IDs: variants.*.attributes.* => exists:attribute_values,id
-                Object.values(variant.attributes).forEach((valId, attrIndex) => {
-                    data.append(`variants[${index}][attributes][${attrIndex}]`, String(valId));
-                });
-            });
-
+    const createMutation = useMutation({
+        mutationFn: async (data: FormData) => {
             const response = await fetch(endpoints.products.create, {
                 method: 'POST',
                 headers: {
@@ -199,25 +157,67 @@ export const AddProduct: React.FC = () => {
                 },
                 body: data,
             });
-
-            const resData = await response.json();
-
-            if (resData.success || response.ok) {
+            return response.json();
+        },
+        onSuccess: (data) => {
+            if (data.success) {
                 alert('Product created successfully');
+                queryClient.invalidateQueries({ queryKey: ['products'] });
                 navigate('/products');
             } else {
-                alert(`Failed to create product: ${JSON.stringify(resData.message || resData.errors)}`);
+                alert(`Failed to create product: ${JSON.stringify(data.message || data.errors)}`);
+            }
+        },
+        onError: () => {
+            alert('An error occurred while creating the product.');
+        }
+    });
+
+    const handleSubmit = () => {
+        if (!token) return;
+
+        const data = new FormData();
+
+        // Basic Fields
+        data.append('name', formData.name);
+        data.append('description', formData.description);
+        if (formData.short_description) data.append('short_description', formData.short_description);
+        data.append('price', formData.price);
+        if (formData.discount_price) data.append('discount_price', formData.discount_price);
+        if (formData.parent_category_id) data.append('parent_category_id', formData.parent_category_id);
+        data.append('category_id', formData.category_id);
+
+        // If no variants, send simple quantity
+        if (variants.length === 0) {
+            data.append('quantity', formData.quantity);
+        }
+
+        // Images
+        images.forEach((img) => {
+            data.append('images[]', img);
+        });
+
+        // Variants
+        variants.forEach((variant, index) => {
+            if (variant.sku) data.append(`variants[${index}][sku]`, variant.sku);
+            data.append(`variants[${index}][price]`, variant.price);
+            data.append(`variants[${index}][quantity]`, variant.quantity);
+            if (variant.discount_price) data.append(`variants[${index}][discount_price]`, variant.discount_price);
+
+            if (variant.image) {
+                data.append(`variants[${index}][image]`, variant.image);
             }
 
-        } catch (error) {
-            console.error('Error creating product:', error);
-            alert('An error occurred while creating the product.');
-        } finally {
-            setSaving(false);
-        }
+            // Attributes
+            Object.values(variant.attributes).forEach((valId, attrIndex) => {
+                data.append(`variants[${index}][attributes][${attrIndex}]`, String(valId));
+            });
+        });
+
+        createMutation.mutate(data);
     };
 
-    if (loading) return <div className="p-6">Loading...</div>;
+    if (isLoadingParents || isLoadingCategories || isLoadingAttributes) return <div className="p-6">Loading...</div>;
 
     const inputClasses = "w-full px-4 py-2 rounded-lg border border-gray-200 focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 transition-all duration-200 bg-gray-50 focus:bg-white outline-none";
     const labelClasses = "block text-sm font-medium text-gray-700 mb-1.5";
@@ -247,11 +247,11 @@ export const AddProduct: React.FC = () => {
                     </button>
                     <button
                         onClick={handleSubmit}
-                        disabled={saving}
+                        disabled={createMutation.isPending}
                         className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 disabled:opacity-50"
                     >
                         <Save className="h-4 w-4" />
-                        {saving ? 'Creating...' : 'Create Product'}
+                        {createMutation.isPending ? 'Creating...' : 'Create Product'}
                     </button>
                 </div>
             </div>

@@ -1,7 +1,7 @@
-
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Save, Plus, Trash2, Upload, Star, GripVertical, X } from 'lucide-react';
+import { ArrowLeft, Save, Trash2, Star, GripVertical, Plus, Upload, X } from 'lucide-react';
 import { endpoints } from '../config';
 import { useAuth } from '../context/AuthContext';
 import { Reorder, useDragControls } from 'framer-motion';
@@ -141,35 +141,7 @@ export const ProductDetails: React.FC = () => {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
     const { token } = useAuth();
-    const [loading, setLoading] = useState(true);
-    const [product, setProduct] = useState<ProductDetails | null>(null);
-    const [parentCategories, setParentCategories] = useState<ParentCategory[]>([]);
-    const [categories, setCategories] = useState<Category[]>([]);
-    const [skuAttributes, setSkuAttributes] = useState<SkuAttributeOption[]>([]);
-    const [saving, setSaving] = useState(false);
-    const [uploading, setUploading] = useState(false);
-    const [selectedSkuAttrId, setSelectedSkuAttrId] = useState<number | ''>('');
-
-    // Add Variant State
-    const [isAddVariantOpen, setIsAddVariantOpen] = useState(false);
-    const [availableAttributes, setAvailableAttributes] = useState<Attribute[]>([]);
-    const [newVariant, setNewVariant] = useState({
-        price: '',
-        quantity: '0',
-        attributes: {} as Record<number, number>, // attribute_id -> value_id
-        image: null as File | null
-    });
-    const [addingVariant, setAddingVariant] = useState(false);
-
-    // Edit Variant State
-    const [isEditSkuOpen, setIsEditSkuOpen] = useState(false);
-    const [editingSku, setEditingSku] = useState<ProductSku | null>(null);
-    const [editSkuForm, setEditSkuForm] = useState({
-        price: '',
-        quantity: '',
-        discount_price: ''
-    });
-    const [updatingSku, setUpdatingSku] = useState(false);
+    const queryClient = useQueryClient();
 
     // Form state
     const [formData, setFormData] = useState({
@@ -181,120 +153,97 @@ export const ProductDetails: React.FC = () => {
         category_id: 0,
     });
 
-    // Function to fetch product data (reusable for updates)
-    const fetchProduct = async () => {
-        if (!id || !token) return;
-        try {
-            const headers: HeadersInit = {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`,
-            };
-            const response = await fetch(endpoints.products.getById(id), { headers });
-            const data = await response.json();
-            if (data.success) {
-                const p = data.data;
-                // Sort images by sort_order
-                p.images.sort((a: ProductImage, b: ProductImage) => (a.sort_order || 999) - (b.sort_order || 999));
-                setProduct(p);
-                setFormData({
-                    name: p.name,
-                    description: p.description || '',
-                    short_description: p.short_description || '',
-                    base_price: p.price,
-                    parent_category_id: p.parent_category?.id || 0,
-                    category_id: p.category?.id || 0,
+    // Queries
+    const { data: productData, isLoading: isLoadingProduct } = useQuery({
+        queryKey: ['product', id],
+        queryFn: async () => {
+            const headers: HeadersInit = { Authorization: `Bearer ${token}` };
+            const res = await fetch(endpoints.products.getById(id!), { headers });
+            return res.json();
+        },
+        enabled: !!id && !!token,
+    });
+
+    const { data: skuAttrsData } = useQuery({
+        queryKey: ['skuAttributes', id],
+        queryFn: async () => {
+            const headers: HeadersInit = { Authorization: `Bearer ${token}` };
+            const res = await fetch(endpoints.products.skuAttributes(id!), { headers });
+            return res.json();
+        },
+        enabled: !!id && !!token,
+    });
+
+    const { data: availAttrsData } = useQuery({
+        queryKey: ['attributes'],
+        queryFn: async () => {
+            const headers: HeadersInit = { Authorization: `Bearer ${token}` };
+            const res = await fetch(endpoints.attributes.all, { headers });
+            return res.json();
+        },
+        enabled: !!token,
+        staleTime: 600000,
+    });
+
+    const { data: parentsData } = useQuery({
+        queryKey: ['parentCategories'],
+        queryFn: async () => {
+            const headers: HeadersInit = { Authorization: `Bearer ${token}` };
+            const res = await fetch(endpoints.categories.parents, { headers });
+            return res.json();
+        },
+        enabled: !!token,
+        staleTime: 600000,
+    });
+
+    const { data: catsData } = useQuery({
+        queryKey: ['categories'],
+        queryFn: async () => {
+            const headers: HeadersInit = { Authorization: `Bearer ${token}` };
+            const res = await fetch(endpoints.categories.all, { headers });
+            return res.json();
+        },
+        enabled: !!token,
+        staleTime: 600000,
+    });
+
+    // Derived State
+    const product = productData?.success ? productData.data : null;
+    if (product) {
+        product.images.sort((a: ProductImage, b: ProductImage) => (a.sort_order || 999) - (b.sort_order || 999));
+    }
+
+    const skuAttributes: SkuAttributeOption[] = [];
+    if (skuAttrsData?.success) {
+        skuAttrsData.data.forEach((skuItem: any) => {
+            skuItem.attributes.forEach((attr: any) => {
+                skuAttributes.push({
+                    sku_attribute_id: attr.sku_attribute_id,
+                    attribute_name: attr.attribute_name,
+                    value_name: attr.value_name,
+                    product_image_id: attr.product_image_id
                 });
-            }
-        } catch (error) {
-            console.error('Error fetching product:', error);
-        }
-    };
+            });
+        });
+    }
 
-    const fetchSkuAttributes = async () => {
-        if (!id || !token) return;
-        try {
-            const headers: HeadersInit = {
-                'Authorization': `Bearer ${token}`,
-            };
-            const response = await fetch(endpoints.products.skuAttributes(id), { headers });
-            const data = await response.json();
-            if (data.success) {
-                // Flatten the structured response to get a list of all attribute options
-                // The API returns [{ sku_id, attributes: [{ sku_attribute_id, attribute_name, value_name }] }]
-                // We want to extract all unique mappable attributes? Or list by SKU?
-                // The user's goal is "assign in the sku_attribute_id". A SKU Attribute ID is unique to a SKU's attribute value.
-                // So we can list them like: "SKU-CODE - Size: S", "SKU-CODE - Color: Red"
+    const availableAttributes = availAttrsData?.success ? availAttrsData.data.data : [];
+    const parentCategories = parentsData?.success ? parentsData.data : [];
+    const categories = catsData?.success ? catsData.data : [];
 
-                const options: SkuAttributeOption[] = [];
-                data.data.forEach((skuItem: any) => {
-                    skuItem.attributes.forEach((attr: any) => {
-                        options.push({
-                            sku_attribute_id: attr.sku_attribute_id,
-                            attribute_name: attr.attribute_name,
-                            value_name: attr.value_name,
-                            product_image_id: attr.product_image_id
-                        });
-                    });
-                });
-                setSkuAttributes(options);
-            }
-        } catch (error) {
-            console.error('Error fetching SKU attributes:', error);
-        }
-    };
-
-    const fetchAvailableAttributes = async () => {
-        if (!token) return;
-        try {
-            const headers: HeadersInit = { 'Authorization': `Bearer ${token}` };
-            const response = await fetch(endpoints.attributes.all, { headers });
-            const data = await response.json();
-            if (data.success) {
-                setAvailableAttributes(data.data.data);
-            }
-        } catch (error) {
-            console.error('Error fetching attributes:', error);
-        }
-    };
-
+    // Sync Form Data when product loads
     useEffect(() => {
-        const init = async () => {
-            if (!id || !token) return;
-            setLoading(true);
-
-            try {
-                const headers: HeadersInit = {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`,
-                };
-
-                await Promise.all([
-                    fetchProduct(),
-                    fetchSkuAttributes(),
-                    fetchAvailableAttributes(),
-                ]);
-
-                // Fetch data for dropdowns
-                const [parentsRes, categoriesRes] = await Promise.all([
-                    fetch(endpoints.categories.parents, { headers }),
-                    fetch(endpoints.categories.all, { headers })
-                ]);
-
-                const parentsData = await parentsRes.json();
-                const categoriesData = await categoriesRes.json();
-
-                if (parentsData.success) setParentCategories(parentsData.data);
-                if (categoriesData.success) setCategories(categoriesData.data);
-
-            } catch (error) {
-                console.error('Error initializing:', error);
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        init();
-    }, [id, token]);
+        if (product) {
+            setFormData({
+                name: product.name,
+                description: product.description || '',
+                short_description: product.short_description || '',
+                base_price: product.price,
+                parent_category_id: product.parent_category?.id || 0,
+                category_id: product.category?.id || 0,
+            });
+        }
+    }, [productData]);
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
@@ -304,265 +253,127 @@ export const ProductDetails: React.FC = () => {
         }));
     };
 
-    const handleSave = async () => {
-        if (!id || !token) return;
-        setSaving(true);
-        try {
+    // Mutations
+
+    // Local State
+    const [selectedSkuAttrId, setSelectedSkuAttrId] = useState<number | ''>('');
+
+    // Add Variant State
+    const [isAddVariantOpen, setIsAddVariantOpen] = useState(false);
+    const [newVariant, setNewVariant] = useState({
+        price: '',
+        quantity: '0',
+        attributes: {} as Record<number, number>, // attribute_id -> value_id
+        image: null as File | null
+    });
+
+    // Edit Variant State
+    const [isEditSkuOpen, setIsEditSkuOpen] = useState(false);
+    const [editingSku, setEditingSku] = useState<ProductSku | null>(null);
+    const [editSkuForm, setEditSkuForm] = useState({
+        price: '',
+        quantity: '',
+        discount_price: ''
+    });
+    const updateProductMutation = useMutation({
+        mutationFn: async (data: typeof formData) => {
             const headers: HeadersInit = {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${token}`,
             };
-
-            const response = await fetch(endpoints.products.getById(id), {
+            const response = await fetch(endpoints.products.getById(id!), {
                 method: 'PUT',
                 headers,
                 body: JSON.stringify({
-                    ...formData,
-                    base_price: parseFloat(formData.base_price),
-                    parent_category_id: Number(formData.parent_category_id),
-                    category_id: Number(formData.category_id),
+                    ...data,
+                    base_price: parseFloat(data.base_price),
+                    parent_category_id: Number(data.parent_category_id),
+                    category_id: Number(data.category_id),
                 }),
             });
-
-            const data = await response.json();
+            return response.json();
+        },
+        onSuccess: (data) => {
             if (data.success) {
                 alert('Product updated successfully!');
+                queryClient.invalidateQueries({ queryKey: ['product', id] });
             } else {
                 alert(`Failed to update: ${data.message}`);
             }
-        } catch (error) {
-            console.error('Error updating product:', error);
-            alert('An error occurred while saving.');
-        } finally {
-            setSaving(false);
-        }
-    };
+        },
+        onError: () => alert('An error occurred while saving.')
+    });
 
-    // Image Management Functions
-    const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-        const file = event.target.files?.[0];
-        if (!file || !id || !token) return;
-
-        setUploading(true);
-        try {
-            const formData = new FormData();
-            formData.append('image', file);
-            if (selectedSkuAttrId) {
-                formData.append('product_sku_attribute_id', String(selectedSkuAttrId));
-            }
-            // If not selected, we don't append it, or backend handles null.
-
-            const response = await fetch(endpoints.products.images.upload(id), {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                },
-                body: formData,
-            });
-
-            const data = await response.json();
-            if (data.success || response.ok) {
-                await fetchProduct(); // Reload to see new image
-                await fetchSkuAttributes(); // Reload to see if attribute image status changed
-                alert('Image uploaded successfully');
-                setSelectedSkuAttrId(''); // Reset selection
-            } else {
-                alert(`Upload failed: ${data.message}`);
-            }
-        } catch (error) {
-            console.error('Error uploading image:', error);
-            alert('Error uploading image');
-        } finally {
-            setUploading(false);
-            // Reset input
-            event.target.value = '';
-        }
-    };
-
-    const handleDeleteImage = async (imageId: number) => {
-        if (!id || !token || !confirm('Are you sure you want to delete this image?')) return;
-        try {
-            const response = await fetch(endpoints.products.images.delete(id, imageId), {
-                method: 'DELETE',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                },
-            });
-            const data = await response.json();
-            if (data.success || response.ok) {
-                if (product) {
-                    setProduct({
-                        ...product,
-                        images: product.images.filter(img => img.id !== imageId)
-                    });
-                }
-            } else {
-                alert(`Delete failed: ${data.message}`);
-            }
-        } catch (error) {
-            console.error('Error deleting image:', error);
-        }
-    };
-
-    const handleSetPrimary = async (imageId: number) => {
+    const handleSave = () => {
         if (!id || !token) return;
-        try {
-            const currentImage = product?.images.find(img => img.id === imageId);
-            const currentSortOrder = currentImage?.sort_order || 0;
-
-            const response = await fetch(endpoints.products.images.update(id, imageId), {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`,
-                },
-                body: JSON.stringify({
-                    is_primary: true,
-                    sort_order: currentSortOrder
-                }),
-            });
-
-            if (response.ok) {
-                // Update local state
-                if (product) {
-                    setProduct({
-                        ...product,
-                        images: product.images.map(img => ({
-                            ...img,
-                            is_primary: img.id === imageId
-                        }))
-                    });
-                }
-            } else {
-                alert('Failed to set primary image');
-            }
-        } catch (error) {
-            console.error('Error setting primary image:', error);
-        }
+        updateProductMutation.mutate(formData);
     };
 
-    // Reorder Logic
-    const handleReorder = async (newOrder: ProductImage[]) => {
-        if (!product || !id || !token) return;
-
-        // Optimistic update
-        setProduct({ ...product, images: newOrder });
-
-        try {
-            const updates = newOrder.map((img, index) => {
-                const newSortOrder = index + 1;
-                // Only send request for images that actually changed order, but sending all is safer for consistency
-                return fetch(endpoints.products.images.update(id, img.id), {
-                    method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`,
-                    },
-                    body: JSON.stringify({
-                        sort_order: newSortOrder,
-                        is_primary: img.is_primary
-                    }),
-                });
-            });
-
-            await Promise.all(updates);
-            console.log('Order updated');
-
-        } catch (error) {
-            console.error('Error reordering images:', error);
-            alert('Failed to save image order');
-            fetchProduct(); // Revert on error
-        }
-    };
-
-    const handleDelete = async () => {
-        if (!id || !token || !confirm('Are you sure you want to delete this product? This action cannot be undone.')) return;
-
-        try {
-            const response = await fetch(endpoints.products.delete(id), {
+    const deleteProductMutation = useMutation({
+        mutationFn: async () => {
+            const response = await fetch(endpoints.products.delete(Number(id)), {
                 method: 'DELETE',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                },
+                headers: { 'Authorization': `Bearer ${token}` },
             });
-
-            const data = await response.json();
-            if (data.success || response.ok) {
+            return response.json();
+        },
+        onSuccess: (data) => {
+            if (data.success) {
                 navigate('/products');
             } else {
                 alert(`Failed to delete product: ${data.message}`);
             }
-        } catch (error) {
-            console.error('Error deleting product:', error);
-            alert('An error occurred while deleting.');
+        },
+        onError: () => alert('An error occurred while deleting.')
+    });
+
+    const handleDelete = () => {
+        if (confirm('Are you sure you want to delete this product?')) {
+            deleteProductMutation.mutate();
         }
     };
 
-    const handleAddVariant = async () => {
-        if (!id || !token) return;
-        setAddingVariant(true);
-
-        try {
+    const addVariantMutation = useMutation({
+        mutationFn: async () => {
             const formData = new FormData();
-
-            // variants[0][price]
             formData.append('variants[0][price]', newVariant.price || product?.price || '0');
-            // variants[0][quantity]
             formData.append('variants[0][quantity]', newVariant.quantity);
-
-            // variants[0][image]
             if (newVariant.image) {
                 formData.append('variants[0][image]', newVariant.image);
             }
-
-            // variants[0][sku] - Optional, backend generates if empty
-
-            // variants[0][attributes][]
             Object.values(newVariant.attributes).forEach((valueId, index) => {
                 formData.append(`variants[0][attributes][${index}]`, String(valueId));
             });
 
-            const response = await fetch(endpoints.products.addSku(id), {
+            const response = await fetch(endpoints.products.addSku(Number(id)), {
                 method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                },
+                headers: { 'Authorization': `Bearer ${token}` },
                 body: formData,
             });
-
-            const data = await response.json();
-
-            if (data.success || response.ok) {
+            return response.json();
+        },
+        onSuccess: (data) => {
+            if (data.success) {
                 alert('Variant added successfully');
                 setIsAddVariantOpen(false);
                 setNewVariant({ price: '', quantity: '0', attributes: {}, image: null });
-                fetchProduct();
+                queryClient.invalidateQueries({ queryKey: ['product', id] });
+                queryClient.invalidateQueries({ queryKey: ['skuAttributes', id] });
             } else {
-                alert(`Failed to add variant: ${JSON.stringify(data.message || data.errors)}`);
+                alert(`Failed to add variant: ${data.message || JSON.stringify(data.errors)}`);
             }
-        } catch (error) {
-            console.error('Error adding variant:', error);
-            alert('Error adding variant');
-        } finally {
-            setAddingVariant(false);
-        }
+        },
+        onError: () => alert('Error adding variant')
+    });
+
+    const handleAddVariant = () => {
+        addVariantMutation.mutate();
     };
 
-    const handleOpenEditSku = (sku: ProductSku) => {
-        setEditingSku(sku);
-        setEditSkuForm({
-            price: sku.price,
-            quantity: String(sku.quantity),
-            discount_price: ''
-        });
-        setIsEditSkuOpen(true);
-    };
-
-    const handleUpdateSku = async () => {
-        if (!id || !token || !editingSku) return;
-        setUpdatingSku(true);
-        try {
-            const response = await fetch(endpoints.products.updateSku(id, editingSku.id), {
+    const updateSkuMutation = useMutation({
+        mutationFn: async () => {
+            if (!editingSku) return;
+            const response = await fetch(endpoints.products.updateSku(Number(id), editingSku.id), {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
@@ -574,79 +385,198 @@ export const ProductDetails: React.FC = () => {
                     discount_price: editSkuForm.discount_price ? parseFloat(editSkuForm.discount_price) : null
                 }),
             });
-
-            const data = await response.json();
-            if (data.success || response.ok) {
+            return response.json();
+        },
+        onSuccess: (data) => {
+            if (data.success) {
                 alert('SKU updated successfully');
                 setIsEditSkuOpen(false);
                 setEditingSku(null);
-                fetchProduct();
+                queryClient.invalidateQueries({ queryKey: ['product', id] });
             } else {
-                alert(`Failed to update SKU: ${JSON.stringify(data.message || data.errors)}`);
+                alert(`Failed to update SKU: ${data.message || JSON.stringify(data.errors)}`);
             }
-        } catch (error) {
-            console.error('Error updating SKU:', error);
-            alert('Error updating SKU');
-        } finally {
-            setUpdatingSku(false);
-        }
+        },
+        onError: () => alert('Error updating SKU')
+    });
+
+    const handleUpdateSku = () => {
+        updateSkuMutation.mutate();
     };
 
-    const handleDeleteSku = async (sku: ProductSku) => {
-        if (!id || !token || !confirm('Are you sure you want to delete this variant?')) return;
-
-        try {
-            const response = await fetch(endpoints.products.deleteSkuData(id), {
+    const deleteSkuMutation = useMutation({
+        mutationFn: async (skuId: number) => {
+            const response = await fetch(endpoints.products.deleteSkuData(Number(id)), {
                 method: 'DELETE',
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`,
                 },
-                body: JSON.stringify({ sku_id: sku.id })
+                body: JSON.stringify({ sku_id: skuId })
             });
-
-            const data = await response.json();
-
-            if (data.success || response.ok) {
+            return response.json();
+        },
+        onSuccess: (data) => {
+            if (data.success) {
                 alert('SKU deleted successfully');
-                fetchProduct();
+                queryClient.invalidateQueries({ queryKey: ['product', id] });
+                queryClient.invalidateQueries({ queryKey: ['skuAttributes', id] });
             } else {
-                alert(`Failed to delete SKU: ${data.message || 'Unknown error'}`);
+                alert(`Failed to delete SKU: ${data.message}`);
             }
-        } catch (error) {
-            console.error('Error deleting SKU:', error);
-            alert('Error deleting SKU');
+        },
+        onError: () => alert('Error deleting SKU')
+    });
+
+    const handleDeleteSku = (sku: ProductSku) => {
+        if (confirm('Are you sure you want to delete this variant?')) {
+            deleteSkuMutation.mutate(sku.id);
         }
     };
 
-    const handleStatusToggle = async () => {
-        if (!id || !token || !product) return;
-        try {
+    // --- Status Mutation ---
+    const statusMutation = useMutation({
+        mutationFn: async () => {
             const url = endpoints.products.updateStatus(Number(id));
             const headers: HeadersInit = {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${token}`,
             };
-
-            const response = await fetch(url, {
-                method: 'PATCH',
-                headers,
-            });
-
-            const data = await response.json();
-
+            const response = await fetch(url, { method: 'PATCH', headers });
+            return response.json();
+        },
+        onSuccess: (data) => {
             if (data.success) {
-                setProduct({ ...product, is_active: !product.is_active });
+                queryClient.invalidateQueries({ queryKey: ['product', id] });
             } else {
-                alert(`Failed to update status: ${data.message || 'Unknown error'}`);
+                alert(`Failed to update status: ${data.message}`);
             }
-        } catch (error) {
-            console.error('Error updating status:', error);
-            alert('Error updating status');
-        }
+        },
+        onError: () => alert('Error updating status')
+    });
+
+    const handleStatusToggle = () => {
+        statusMutation.mutate();
     };
 
-    if (loading) return <div className="p-6">Loading...</div>;
+
+    // --- Image Mutations ---
+
+    const uploadImageMutation = useMutation({
+        mutationFn: async (file: File) => {
+            const formData = new FormData();
+            formData.append('image', file);
+            if (selectedSkuAttrId) {
+                formData.append('product_sku_attribute_id', String(selectedSkuAttrId));
+            }
+            const response = await fetch(endpoints.products.images.upload(id!), {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}` },
+                body: formData,
+            });
+            return response.json();
+        },
+        onSuccess: (data) => {
+            if (data.success) {
+                alert('Image uploaded successfully');
+                setSelectedSkuAttrId('');
+                queryClient.invalidateQueries({ queryKey: ['product', id] });
+                queryClient.invalidateQueries({ queryKey: ['skuAttributes', id] });
+            } else {
+                alert(`Upload failed: ${data.message}`);
+            }
+        },
+        onError: () => alert('Error uploading image')
+    });
+
+    const deleteImageMutation = useMutation({
+        mutationFn: async (imageId: number) => {
+            const response = await fetch(endpoints.products.images.delete(id!, imageId), {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${token}` },
+            });
+            return response.json();
+        },
+        onSuccess: (data) => {
+            if (data.success) {
+                queryClient.invalidateQueries({ queryKey: ['product', id] });
+            } else {
+                alert(`Delete failed: ${data.message}`);
+            }
+        },
+        onError: () => alert('Error deleting image')
+    });
+
+    const setPrimaryImageMutation = useMutation({
+        mutationFn: async ({ imageId, sortOrder }: { imageId: number, sortOrder: number }) => {
+            const response = await fetch(endpoints.products.images.update(id!, imageId), {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`,
+                },
+                body: JSON.stringify({ is_primary: true, sort_order: sortOrder }),
+            });
+            return response.json();
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['product', id] });
+        },
+        onError: () => alert('Failed to set primary image')
+    });
+
+    const reorderImagesMutation = useMutation({
+        mutationFn: async (newOrder: ProductImage[]) => {
+            const updates = newOrder.map((img, index) => {
+                const newSortOrder = index + 1;
+                return fetch(endpoints.products.images.update(id!, img.id), {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`,
+                    },
+                    body: JSON.stringify({
+                        sort_order: newSortOrder,
+                        is_primary: img.is_primary
+                    }),
+                });
+            });
+            await Promise.all(updates);
+            return { success: true };
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['product', id] });
+        },
+        onError: () => alert('Failed to save image order')
+    });
+
+    // --- Handlers using Mutations ---
+
+    const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file || !id || !token) return;
+        uploadImageMutation.mutate(file);
+        event.target.value = '';
+    };
+
+    const handleDeleteImage = (imageId: number) => {
+        if (!id || !token || !confirm('Are you sure you want to delete this image?')) return;
+        deleteImageMutation.mutate(imageId);
+    };
+
+    const handleSetPrimary = (imageId: number) => {
+        if (!id || !token) return;
+        const currentImage = product?.images.find((img: ProductImage) => img.id === imageId);
+        const currentSortOrder = currentImage?.sort_order || 0;
+        setPrimaryImageMutation.mutate({ imageId, sortOrder: currentSortOrder });
+    };
+
+    const handleReorder = (newOrder: ProductImage[]) => {
+        if (!product || !id || !token) return;
+        reorderImagesMutation.mutate(newOrder);
+    };
+
+    if (isLoadingProduct) return <div className="p-6">Loading...</div>;
     if (!product) return <div className="p-6">Product not found</div>;
 
     const inputClasses = "w-full px-4 py-2 rounded-lg border border-gray-200 focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 transition-all duration-200 bg-gray-50 focus:bg-white outline-none";
@@ -683,11 +613,11 @@ export const ProductDetails: React.FC = () => {
                     </button>
                     <button
                         onClick={handleSave}
-                        disabled={saving}
+                        disabled={updateProductMutation.isPending}
                         className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 disabled:opacity-50"
                     >
                         <Save className="h-4 w-4" />
-                        {saving ? 'Saving...' : 'Save Changes'}
+                        {updateProductMutation.isPending ? 'Saving...' : 'Save Changes'}
                     </button>
                 </div>
             </div>
@@ -726,7 +656,7 @@ export const ProductDetails: React.FC = () => {
                                     className={inputClasses}
                                 >
                                     <option value={0}>Select Parent Category</option>
-                                    {parentCategories.map(pc => (
+                                    {parentCategories.map((pc: ParentCategory) => (
                                         <option key={pc.id} value={pc.id}>{pc.name}</option>
                                     ))}
                                 </select>
@@ -741,8 +671,8 @@ export const ProductDetails: React.FC = () => {
                                 >
                                     <option value={0}>Select Category</option>
                                     {categories
-                                        .filter(c => formData.parent_category_id == 0 || (c as any).parent_category_id == formData.parent_category_id)
-                                        .map(c => (
+                                        .filter((c: Category) => formData.parent_category_id == 0 || (c as any).parent_category_id == formData.parent_category_id)
+                                        .map((c: Category) => (
                                             <option key={c.id} value={c.id}>{c.name}</option>
                                         ))}
                                 </select>
@@ -814,7 +744,7 @@ export const ProductDetails: React.FC = () => {
                                     </tr>
                                 </thead>
                                 <tbody className="bg-white divide-y divide-gray-200">
-                                    {product.skus.map((sku) => (
+                                    {product.skus.map((sku: ProductSku) => (
                                         <tr key={sku.id}>
                                             <td className="px-6 py-4 whitespace-nowrap">
                                                 {sku.image ? (
@@ -828,7 +758,7 @@ export const ProductDetails: React.FC = () => {
                                             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{sku.sku}</td>
                                             <td className="px-6 py-4 text-sm text-gray-500">
                                                 <div className="flex flex-wrap gap-1">
-                                                    {sku.attributes.map(attr => (
+                                                    {sku.attributes.map((attr: SkuAttribute) => (
                                                         <span key={attr.attribute_id} className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800">
                                                             {attr.attribute_name}: {attr.value_name}
                                                         </span>
@@ -873,7 +803,7 @@ export const ProductDetails: React.FC = () => {
                             onReorder={handleReorder}
                             className="grid grid-cols-2 gap-4"
                         >
-                            {product.images.map((img) => (
+                            {product.images.map((img: ProductImage) => (
                                 <DraggableImageCard
                                     key={img.id}
                                     img={img}
@@ -894,7 +824,7 @@ export const ProductDetails: React.FC = () => {
                                     className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 text-sm"
                                 >
                                     <option value="">None (General Image)</option>
-                                    {skuAttributes.map((attr) => (
+                                    {skuAttributes.map((attr: SkuAttributeOption) => (
                                         <option key={attr.sku_attribute_id} value={attr.sku_attribute_id}>
                                             {attr.attribute_name}: {attr.value_name}
                                         </option>
@@ -909,15 +839,15 @@ export const ProductDetails: React.FC = () => {
                                     accept="image/*"
                                     className="hidden"
                                     onChange={handleImageUpload}
-                                    disabled={uploading}
+                                    disabled={uploadImageMutation.isPending}
                                 />
                                 <label
                                     htmlFor="image-upload"
-                                    className={`flex flex-col items-center justify-center p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-primary-500 hover:bg-gray-50 transition-colors cursor-pointer ${uploading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                    className={`flex flex-col items-center justify-center p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-primary-500 hover:bg-gray-50 transition-colors cursor-pointer ${uploadImageMutation.isPending ? 'opacity-50 cursor-not-allowed' : ''}`}
                                 >
                                     <Upload className="h-6 w-6 text-gray-400 mb-2" />
                                     <span className="text-sm font-medium text-gray-600">
-                                        {uploading ? 'Uploading...' : 'Click to Upload New Image'}
+                                        {uploadImageMutation.isPending ? 'Uploading...' : 'Click to Upload New Image'}
                                     </span>
                                 </label>
                             </div>
@@ -930,7 +860,8 @@ export const ProductDetails: React.FC = () => {
                             <span className="text-sm font-medium text-gray-700">Active Status</span>
                             <button
                                 onClick={handleStatusToggle}
-                                className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 ${product.is_active ? 'bg-primary-600' : 'bg-gray-200'}`}
+                                disabled={statusMutation.isPending}
+                                className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 ${product.is_active ? 'bg-primary-600' : 'bg-gray-200'} ${statusMutation.isPending ? 'opacity-50' : ''}`}
                             >
                                 <span className="sr-only">Use setting</span>
                                 <span
@@ -956,7 +887,7 @@ export const ProductDetails: React.FC = () => {
 
                         <div className="space-y-4">
                             {/* Attributes */}
-                            {availableAttributes.map(attr => (
+                            {availableAttributes.map((attr: Attribute) => (
                                 <div key={attr.id} className="space-y-1">
                                     <label className="block text-sm font-medium text-gray-700">{attr.name}</label>
                                     <select
@@ -968,7 +899,7 @@ export const ProductDetails: React.FC = () => {
                                         })}
                                     >
                                         <option value="">Select {attr.name}</option>
-                                        {attr.values.map(val => (
+                                        {attr.values.map((val: AttributeValue) => (
                                             <option key={val.id} value={val.id}>{val.name}</option>
                                         ))}
                                     </select>
@@ -1019,10 +950,10 @@ export const ProductDetails: React.FC = () => {
                             </button>
                             <button
                                 onClick={handleAddVariant}
-                                disabled={addingVariant}
-                                className="px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 disabled:opacity-50"
+                                disabled={addVariantMutation.isPending}
+                                className="w-full py-2.5 px-4 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 font-medium transition-colors"
                             >
-                                {addingVariant ? 'Adding...' : 'Add Variant'}
+                                {addVariantMutation.isPending ? 'Adding Variant...' : 'Add Variant'}
                             </button>
                         </div>
                     </div>
@@ -1078,10 +1009,10 @@ export const ProductDetails: React.FC = () => {
                             </button>
                             <button
                                 onClick={handleUpdateSku}
-                                disabled={updatingSku}
-                                className="px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 disabled:opacity-50"
+                                disabled={updateSkuMutation.isPending}
+                                className="flex-1 py-2.5 px-4 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 font-medium transition-colors"
                             >
-                                {updatingSku ? 'Saving...' : 'Save Changes'}
+                                {updateSkuMutation.isPending ? 'Updating...' : 'Update Variant'}
                             </button>
                         </div>
                     </div>

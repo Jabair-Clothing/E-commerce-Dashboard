@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, MoreHorizontal, Loader2, X, ChevronDown, Trash2, Edit } from 'lucide-react';
 import { endpoints } from '../config';
 import type { Category, ParentCategory } from '../types/category';
@@ -28,12 +29,9 @@ const Modal: React.FC<{ isOpen: boolean; onClose: () => void; title: string; chi
 };
 
 export const Categories: React.FC = () => {
+    const queryClient = useQueryClient();
     const { token } = useAuth();
-    const [parents, setParents] = useState<ParentCategory[]>([]);
-    const [categories, setCategories] = useState<Category[]>([]);
     const [activeTab, setActiveTab] = useState<number | 'all'>('all');
-    const [loading, setLoading] = useState(true);
-    const [fetchingCategories, setFetchingCategories] = useState(false);
 
     // Dropdown & Modal State
     const [isAddDropdownOpen, setIsAddDropdownOpen] = useState(false);
@@ -51,9 +49,8 @@ export const Categories: React.FC = () => {
     const [categoryParentId, setCategoryParentId] = useState<string>('');
     const [categoryDescription, setCategoryDescription] = useState('');
     const [categoryImage, setCategoryImage] = useState<File | null>(null);
-    const [isSubmitting, setIsSubmitting] = useState(false);
 
-    // Actions Dropdown State (Track which row has dropdown open)
+    // Actions Dropdown State
     const [openActionId, setOpenActionId] = useState<number | null>(null);
 
     const dropdownRef = useRef<HTMLDivElement>(null);
@@ -73,76 +70,146 @@ export const Categories: React.FC = () => {
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
-    const fetchParents = async () => {
-        if (!token) return;
-        try {
-            const response = await fetch(endpoints.categories.parents, {
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Accept': 'application/json',
-                }
+    // --- Queries ---
+    const { data: parentsData, isLoading: isLoadingParents } = useQuery({
+        queryKey: ['parents'],
+        queryFn: async () => {
+            const res = await fetch(endpoints.categories.parents, {
+                headers: { 'Authorization': `Bearer ${token}` }
             });
-            const data = await response.json();
-            if (data.success) {
-                setParents(data.data);
-            }
-        } catch (error) {
-            console.error('Failed to fetch parent categories', error);
-        } finally {
-            setLoading(false);
-        }
-    };
+            return res.json();
+        },
+        enabled: !!token,
+    });
 
-    const fetchCategories = async () => {
-        if (!token) return;
-        setFetchingCategories(true);
-        try {
+    const parents = parentsData?.success ? parentsData.data : [];
+
+    const { data: categoriesData, isLoading: isLoadingCategories } = useQuery({
+        queryKey: ['categories', activeTab],
+        queryFn: async () => {
             let url = endpoints.categories.all;
             if (activeTab !== 'all') {
                 url = `${endpoints.categories.parents}/${activeTab}`;
             }
+            const res = await fetch(url, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            return res.json();
+        },
+        enabled: !!token,
+    });
 
-            const response = await fetch(url, {
+    const categories: Category[] = categoriesData?.success
+        ? (activeTab === 'all' ? categoriesData.data : categoriesData.data.categories || [])
+        : [];
+
+    // --- Mutations ---
+
+    // Parent Mutations
+    const saveParentMutation = useMutation({
+        mutationFn: async (formData: FormData) => {
+            const url = editingParent
+                ? `${endpoints.categories.parents}/${editingParent.id}`
+                : endpoints.categories.parents;
+            const res = await fetch(url, {
+                method: 'POST', // Using POST for both create and update (with FormData)
+                headers: { 'Authorization': `Bearer ${token}` },
+                body: formData
+            });
+            return res.json();
+        },
+        onSuccess: (data) => {
+            if (data.success) {
+                queryClient.invalidateQueries({ queryKey: ['parents'] });
+                setIsParentModalOpen(false);
+                setParentName('');
+                setParentImage(null);
+                setEditingParent(null);
+            } else {
+                alert(`Failed to save: ${data.message}`);
+            }
+        },
+        onError: () => alert('Error saving parent category')
+    });
+
+    const deleteParentMutation = useMutation({
+        mutationFn: async (id: number) => {
+            const res = await fetch(`${endpoints.categories.parents}/${id}`, {
+                method: 'DELETE',
                 headers: {
                     'Authorization': `Bearer ${token}`,
-                    'Accept': 'application/json',
+                    'Accept': 'application/json'
                 }
             });
-            const data = await response.json();
+            if (!res.ok) throw new Error('Failed to delete');
+            return res.json();
+        },
+        onSuccess: () => {
+            if (activeTab === deleteParentIdRef.current) setActiveTab('all');
+            queryClient.invalidateQueries({ queryKey: ['parents'] });
+        },
+        onError: () => alert('Error deleting parent category')
+    });
 
+    // Using a ref to track deleted ID for onSuccess logic since mutation receives variables but onSuccess context is cleaner
+    const deleteParentIdRef = useRef<number | null>(null);
+
+    // Category Mutations
+    const saveCategoryMutation = useMutation({
+        mutationFn: async (formData: FormData) => {
+            const url = editingCategory
+                ? `${endpoints.categories.all}/${editingCategory.id}`
+                : endpoints.categories.all;
+            const res = await fetch(url, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}` },
+                body: formData
+            });
+            return res.json();
+        },
+        onSuccess: (data) => {
             if (data.success) {
-                if (activeTab === 'all') {
-                    setCategories(data.data);
-                } else {
-                    setCategories(data.data.categories || []);
-                }
+                queryClient.invalidateQueries({ queryKey: ['categories'] });
+                setIsCategoryModalOpen(false);
+                setCategoryName('');
+                setCategoryParentId('');
+                setCategoryDescription('');
+                setCategoryImage(null);
+                setEditingCategory(null);
+            } else {
+                alert(`Failed to save: ${data.message}`);
             }
-        } catch (error) {
-            console.error('Failed to fetch categories', error);
-            setCategories([]);
-        } finally {
-            setFetchingCategories(false);
-        }
-    };
+        },
+        onError: () => alert('Error saving category')
+    });
 
-    useEffect(() => {
-        if (token) fetchParents();
-    }, [token]);
+    const deleteCategoryMutation = useMutation({
+        mutationFn: async (id: number) => {
+            const res = await fetch(`${endpoints.categories.all}/${id}`, {
+                method: 'DELETE',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Accept': 'application/json'
+                }
+            });
+            if (!res.ok) throw new Error('Failed to delete');
+            return res.json();
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['categories'] });
+        },
+        onError: () => alert('Error deleting category')
+    });
 
-    useEffect(() => {
-        if (token) fetchCategories();
-    }, [activeTab, token]);
-
-
-    // --- Parent Category Handlers ---
+    // --- Handlers ---
 
     const openParentModal = (parent?: ParentCategory) => {
         if (parent) {
             setEditingParent(parent);
             setParentName(parent.name);
-            setParentImage(null); // Reset file input
+            setParentImage(null);
         } else {
-            setEditingParent(null); // Create mode
+            setEditingParent(null);
             setParentName('');
             setParentImage(null);
         }
@@ -150,80 +217,19 @@ export const Categories: React.FC = () => {
         setIsAddDropdownOpen(false);
     };
 
-    const handleSaveParentCategory = async (e: React.FormEvent) => {
+    const handleSaveParentCategory = (e: React.FormEvent) => {
         e.preventDefault();
-        if (!token) return;
-        setIsSubmitting(true);
-
         const formData = new FormData();
         formData.append('name', parentName);
-        if (parentImage) {
-            formData.append('image', parentImage);
-        }
-
-        try {
-            const url = editingParent
-                ? `${endpoints.categories.parents}/${editingParent.id}`
-                : endpoints.categories.parents;
-
-            // Assuming the update API is POST method as per request
-            const method = 'POST';
-
-            const response = await fetch(url, {
-                method: method,
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Accept': 'application/json',
-                },
-                body: formData
-            });
-
-            const data = await response.json();
-            if (data.success || response.ok) {
-                setIsParentModalOpen(false);
-                setParentName('');
-                setParentImage(null);
-                setEditingParent(null);
-                fetchParents();
-                if (activeTab !== 'all' && editingParent && activeTab === editingParent.id) {
-                    // If we edited the currently active parent, refresh title potentially? 
-                    // Usually fetchParents handles the tabs, but components might need re-render.
-                }
-            } else {
-                alert('Failed to save parent category');
-            }
-        } catch (error) {
-            console.error(error);
-            alert('An error occurred');
-        } finally {
-            setIsSubmitting(false);
-        }
+        if (parentImage) formData.append('image', parentImage);
+        saveParentMutation.mutate(formData);
     };
 
-    const handleDeleteParent = async (parentId: number) => {
-        if (!token || !window.confirm('Are you sure you want to delete this parent category?')) return;
-
-        try {
-            const response = await fetch(`${endpoints.categories.parents}/${parentId}`, {
-                method: 'DELETE',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Accept': 'application/json',
-                }
-            });
-            if (response.ok) {
-                if (activeTab === parentId) setActiveTab('all');
-                fetchParents();
-            } else {
-                alert('Failed to delete parent category');
-            }
-        } catch (e) {
-            console.error(e);
-            alert('Failed to delete');
-        }
+    const handleDeleteParent = (parentId: number) => {
+        if (!window.confirm('Are you sure?')) return;
+        deleteParentIdRef.current = parentId;
+        deleteParentMutation.mutate(parentId);
     };
-
-    // --- Category Handlers ---
 
     const openCategoryModal = (category?: Category) => {
         if (category) {
@@ -244,85 +250,35 @@ export const Categories: React.FC = () => {
         setOpenActionId(null);
     };
 
-    const handleSaveCategory = async (e: React.FormEvent) => {
+    const handleSaveCategory = (e: React.FormEvent) => {
         e.preventDefault();
-        if (!token) return;
         if (!categoryParentId) {
             alert('Please select a parent category');
             return;
         }
-        setIsSubmitting(true);
-
         const formData = new FormData();
         formData.append('name', categoryName);
         formData.append('parent_category_id', categoryParentId);
         if (categoryDescription) formData.append('description', categoryDescription);
         if (categoryImage) formData.append('image', categoryImage);
-
-        try {
-            const url = editingCategory
-                ? `${endpoints.categories.all}/${editingCategory.id}`
-                : endpoints.categories.all;
-
-            // Assuming update is POST
-            const method = 'POST';
-
-            const response = await fetch(url, {
-                method: method,
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Accept': 'application/json',
-                },
-                body: formData
-            });
-            const data = await response.json();
-            if (data.success || response.ok) {
-                setIsCategoryModalOpen(false);
-                setCategoryName('');
-                setCategoryParentId('');
-                setCategoryDescription('');
-                setCategoryImage(null);
-                setEditingCategory(null);
-                fetchCategories();
-            } else {
-                alert('Failed to save category');
-            }
-        } catch (error) {
-            console.error(error);
-            alert('An error occurred');
-        } finally {
-            setIsSubmitting(false);
-        }
+        saveCategoryMutation.mutate(formData);
     };
 
-    const handleDeleteCategory = async (categoryId: number) => {
-        if (!token || !window.confirm('Are you sure you want to delete this category?')) return;
-        try {
-            const response = await fetch(`${endpoints.categories.all}/${categoryId}`, {
-                method: 'DELETE',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Accept': 'application/json',
-                }
-            });
-            if (response.ok) {
-                fetchCategories();
-            } else {
-                alert('Failed to delete category');
-            }
-        } catch (e) {
-            console.log(e);
-            alert('Error deleting');
-        }
+    const handleDeleteCategory = (categoryId: number) => {
+        if (!window.confirm('Are you sure?')) return;
+        deleteCategoryMutation.mutate(categoryId);
     };
 
 
-    if (loading) {
+
+    const loading = isLoadingParents || isLoadingCategories; // Derived loading state
+
+    if (loading && !categories.length && !parents.length) {
         return <div className="flex h-64 items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary-500" /></div>;
     }
 
     // Identify current parent for Edit/Delete buttons in the header
-    const currentParent = parents.find(p => p.id === activeTab);
+    const currentParent = parents.find((p: ParentCategory) => p.id === activeTab);
 
     return (
         <div className="space-y-6">
@@ -396,7 +352,7 @@ export const Categories: React.FC = () => {
                     >
                         All Categories
                     </button>
-                    {parents.map((parent) => (
+                    {parents.map((parent: ParentCategory) => (
                         <button
                             key={parent.id}
                             onClick={() => setActiveTab(parent.id)}
@@ -414,7 +370,7 @@ export const Categories: React.FC = () => {
             </div>
 
             {/* Content Table (For All Tabs) */}
-            {fetchingCategories ? (
+            {isLoadingCategories ? (
                 <div className="flex h-64 items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary-500" /></div>
             ) : categories.length === 0 ? (
                 <div className="text-center py-12 text-gray-500">No categories found.</div>
@@ -528,10 +484,10 @@ export const Categories: React.FC = () => {
                         <button type="button" onClick={() => setIsParentModalOpen(false)} className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg">Cancel</button>
                         <button
                             type="submit"
-                            disabled={isSubmitting}
+                            disabled={saveParentMutation.isPending}
                             className="px-4 py-2 text-sm bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50"
                         >
-                            {isSubmitting ? 'Saving...' : 'Save'}
+                            {saveParentMutation.isPending ? 'Saving...' : 'Save'}
                         </button>
                     </div>
                 </form>
@@ -559,7 +515,7 @@ export const Categories: React.FC = () => {
                             required
                         >
                             <option value="">Select Parent Category</option>
-                            {parents.map((p) => (
+                            {parents.map((p: ParentCategory) => (
                                 <option key={p.id} value={p.id}>{p.name}</option>
                             ))}
                         </select>
@@ -585,10 +541,10 @@ export const Categories: React.FC = () => {
                         <button type="button" onClick={() => setIsCategoryModalOpen(false)} className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg">Cancel</button>
                         <button
                             type="submit"
-                            disabled={isSubmitting}
+                            disabled={saveCategoryMutation.isPending}
                             className="px-4 py-2 text-sm bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50"
                         >
-                            {isSubmitting ? 'Saving...' : 'Save'}
+                            {saveCategoryMutation.isPending ? 'Saving...' : 'Save'}
                         </button>
                     </div>
                 </form>

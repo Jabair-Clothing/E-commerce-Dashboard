@@ -52,38 +52,137 @@ interface ProductDetails {
     primary_image: string | null;
 }
 
+interface Category {
+    id: number;
+    name: string;
+    image_url: string | null;
+}
+
+interface ParentCategory {
+    id: number;
+    name: string;
+    image_url: string | null;
+}
+
 export const ProductDetails: React.FC = () => {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
     const { token } = useAuth();
     const [loading, setLoading] = useState(true);
     const [product, setProduct] = useState<ProductDetails | null>(null);
+    const [parentCategories, setParentCategories] = useState<ParentCategory[]>([]);
+    const [categories, setCategories] = useState<Category[]>([]);
+    const [saving, setSaving] = useState(false);
+
+    // Form state
+    const [formData, setFormData] = useState({
+        name: '',
+        description: '',
+        short_description: '',
+        base_price: '',
+        parent_category_id: 0,
+        category_id: 0,
+    });
 
     useEffect(() => {
-        const fetchProduct = async () => {
-            if (!id) return;
+        const fetchData = async () => {
+            if (!id || !token) return;
 
             try {
                 const headers: HeadersInit = {
                     'Content-Type': 'application/json',
-                    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                    'Authorization': `Bearer ${token}`,
                 };
 
-                const response = await fetch(endpoints.products.getById(id), { headers });
-                const data = await response.json();
+                // Fetch Product
+                const productRes = await fetch(endpoints.products.getById(id), { headers });
+                const productData = await productRes.json();
 
-                if (data.success) {
-                    setProduct(data.data);
+                // Fetch Parent Categories
+                const parentsRes = await fetch(endpoints.categories.parents, { headers });
+                const parentsData = await parentsRes.json();
+
+                // Fetch Categories
+                const categoriesRes = await fetch(endpoints.categories.all, { headers });
+                const categoriesData = await categoriesRes.json();
+
+                if (productData.success) {
+                    const p = productData.data;
+                    setProduct(p);
+                    setFormData({
+                        name: p.name,
+                        description: p.description || '',
+                        short_description: p.short_description || '',
+                        base_price: p.price,
+                        parent_category_id: p.parent_category?.id || 0,
+                        category_id: p.category?.id || 0,
+                    });
                 }
+
+                if (parentsData.success) {
+                    setParentCategories(parentsData.data);
+                }
+
+                if (categoriesData.success) {
+                    setCategories(categoriesData.data);
+                }
+
             } catch (error) {
-                console.error('Error fetching product:', error);
+                console.error('Error fetching data:', error);
             } finally {
                 setLoading(false);
             }
         };
 
-        fetchProduct();
+        fetchData();
     }, [id, token]);
+
+    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+        const { name, value } = e.target;
+        setFormData(prev => ({
+            ...prev,
+            [name]: value
+        }));
+    };
+
+    const handleSave = async () => {
+        if (!id || !token) return;
+        setSaving(true);
+
+        try {
+            const headers: HeadersInit = {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`,
+            };
+
+            const response = await fetch(endpoints.products.getById(id), { // URL is same for GET and PUT usually in REST
+                method: 'PUT', // Assuming PUT for update, user didn't specify method but body suggests update
+                headers,
+                body: JSON.stringify({
+                    ...formData,
+                    base_price: parseFloat(formData.base_price), // Ensure number
+                    parent_category_id: Number(formData.parent_category_id),
+                    category_id: Number(formData.category_id),
+                }),
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                console.log('Product updated successfully');
+                alert('Product updated successfully!');
+            } else {
+                console.error('Failed to update product:', data.message);
+                alert(`Failed to update: ${data.message}`);
+            }
+
+        } catch (error) {
+            console.error('Error updating product:', error);
+            alert('An error occurred while saving.');
+        } finally {
+            setSaving(false);
+        }
+    };
 
     if (loading) {
         return <div className="p-6">Loading...</div>;
@@ -110,12 +209,19 @@ export const ProductDetails: React.FC = () => {
                     </div>
                 </div>
                 <div className="flex gap-3">
-                    <button className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">
+                    <button
+                        onClick={() => navigate('/products')}
+                        className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+                    >
                         Cancel
                     </button>
-                    <button className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700">
+                    <button
+                        onClick={handleSave}
+                        disabled={saving}
+                        className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 disabled:opacity-50"
+                    >
                         <Save className="h-4 w-4" />
-                        Save Changes
+                        {saving ? 'Saving...' : 'Save Changes'}
                     </button>
                 </div>
             </div>
@@ -130,7 +236,9 @@ export const ProductDetails: React.FC = () => {
                                 <label className="block text-sm font-medium text-gray-700">Product Name</label>
                                 <input
                                     type="text"
-                                    defaultValue={product.name}
+                                    name="name"
+                                    value={formData.name}
+                                    onChange={handleInputChange}
                                     className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
                                 />
                             </div>
@@ -146,26 +254,40 @@ export const ProductDetails: React.FC = () => {
                             <div className="space-y-2">
                                 <label className="block text-sm font-medium text-gray-700">Parent Category</label>
                                 <select
+                                    name="parent_category_id"
+                                    value={formData.parent_category_id}
+                                    onChange={handleInputChange}
                                     className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
-                                    defaultValue={product.parent_category?.id}
                                 >
-                                    <option value={product.parent_category?.id}>{product.parent_category?.name}</option>
+                                    <option value={0}>Select Parent Category</option>
+                                    {parentCategories.map(pc => (
+                                        <option key={pc.id} value={pc.id}>{pc.name}</option>
+                                    ))}
                                 </select>
                             </div>
                             <div className="space-y-2">
                                 <label className="block text-sm font-medium text-gray-700">Category</label>
                                 <select
+                                    name="category_id"
+                                    value={formData.category_id}
+                                    onChange={handleInputChange}
                                     className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
-                                    defaultValue={product.category?.id}
                                 >
-                                    <option value={product.category?.id}>{product.category?.name}</option>
+                                    <option value={0}>Select Category</option>
+                                    {categories
+                                        .filter(c => formData.parent_category_id == 0 || (c as any).parent_category_id == formData.parent_category_id)
+                                        .map(c => (
+                                            <option key={c.id} value={c.id}>{c.name}</option>
+                                        ))}
                                 </select>
                             </div>
                             <div className="space-y-2">
                                 <label className="block text-sm font-medium text-gray-700">Base Price (৳)</label>
                                 <input
-                                    type="text"
-                                    defaultValue={product.price}
+                                    type="number"
+                                    name="base_price"
+                                    value={formData.base_price}
+                                    onChange={handleInputChange}
                                     className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
                                 />
                             </div>
@@ -183,7 +305,9 @@ export const ProductDetails: React.FC = () => {
                             <label className="block text-sm font-medium text-gray-700">Short Description</label>
                             <textarea
                                 rows={2}
-                                defaultValue={product.short_description}
+                                name="short_description"
+                                value={formData.short_description}
+                                onChange={handleInputChange}
                                 className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
                             />
                         </div>
@@ -191,7 +315,9 @@ export const ProductDetails: React.FC = () => {
                             <label className="block text-sm font-medium text-gray-700">Description</label>
                             <textarea
                                 rows={4}
-                                defaultValue={product.description}
+                                name="description"
+                                value={formData.description}
+                                onChange={handleInputChange}
                                 className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
                             />
                         </div>

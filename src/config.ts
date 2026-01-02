@@ -10,5 +10,8 @@ export const endpoints = {
     attributes: {
         all: `${API_BASE_URL}/attributes`,
         values: `${API_BASE_URL}/attribute-values`,
+    },
+    products: {
+        all: `${API_BASE_URL}/products`,
     }
 };

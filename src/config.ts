@@ -26,5 +26,14 @@ export const endpoints = {
             delete: (productId: number | string, imageId: number | string) => `${API_BASE_URL}/products/${productId}/images/${imageId}`,
             update: (productId: number | string, imageId: number | string) => `${API_BASE_URL}/products/${productId}/images/${imageId}`,
         }
+    },
+    coupons: {
+        all: `${API_BASE_URL}/coupons`,
+        create: `${API_BASE_URL}/coupons`,
+        toggleStatus: (id: number | string) => `${API_BASE_URL}/coupons/toggle-status/${id}`,
+        delete: (id: number | string) => `${API_BASE_URL}/coupons/${id}`,
+        update: (id: number | string) => `${API_BASE_URL}/coupons/${id}`,
+        addItems: (id: number | string) => `${API_BASE_URL}/coupons/add-items/${id}`,
+        removeItems: (id: number | string) => `${API_BASE_URL}/coupons/remove-items/${id}`,
     }
 };

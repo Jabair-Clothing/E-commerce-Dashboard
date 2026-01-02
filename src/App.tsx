@@ -13,6 +13,7 @@ const ProductDetails = React.lazy(() => import('./pages/ProductDetails').then(mo
 const AddProduct = React.lazy(() => import('./pages/AddProduct').then(module => ({ default: module.AddProduct })));
 const Categories = React.lazy(() => import('./pages/Categories').then(module => ({ default: module.Categories })));
 const Attributes = React.lazy(() => import('./pages/Attributes').then(module => ({ default: module.Attributes })));
+const Coupons = React.lazy(() => import('./pages/Coupons').then(module => ({ default: module.Coupons })));
 const Profile = React.lazy(() => import('./pages/Profile').then(module => ({ default: module.Profile })));
 
 const queryClient = new QueryClient({
@@ -51,6 +52,7 @@ function App() {
                 <Route path="products/:id" element={<ProductDetails />} />
                 <Route path="categories" element={<Categories />} />
                 <Route path="attributes" element={<Attributes />} />
+                <Route path="coupons" element={<Coupons />} />
                 <Route path="profile" element={<Profile />} />
               </Route>
 

@@ -52,6 +52,7 @@ interface ProductSku {
     quantity: number;
     image: string | null;
     attributes: SkuAttribute[];
+    discount_price?: string | number | null;
 }
 
 interface ProductDetails {
@@ -258,14 +259,47 @@ export const ProductDetails: React.FC = () => {
     // Local State
     const [selectedSkuAttrId, setSelectedSkuAttrId] = useState<number | ''>('');
 
-    // Add Variant State
-    const [isAddVariantOpen, setIsAddVariantOpen] = useState(false);
-    const [newVariant, setNewVariant] = useState({
-        price: '',
-        quantity: '0',
-        attributes: {} as Record<number, number>, // attribute_id -> value_id
-        image: null as File | null
-    });
+    interface NewVariant {
+        id: string;
+        price: string;
+        quantity: string;
+        discount_price: string;
+        attributes: Record<number, number>;
+        image: File | null;
+    }
+
+    const [newVariants, setNewVariants] = useState<NewVariant[]>([]);
+
+    const addNewVariantRow = () => {
+        setNewVariants(prev => [...prev, {
+            id: Math.random().toString(36).substr(2, 9),
+            price: product?.price || '',
+            quantity: '0',
+            discount_price: '',
+            attributes: {},
+            image: null
+        }]);
+    };
+
+    const removeNewVariantRow = (id: string) => {
+        setNewVariants(prev => prev.filter(v => v.id !== id));
+    };
+
+    const updateNewVariant = (id: string, field: keyof NewVariant, value: any) => {
+        setNewVariants(prev => prev.map(v => v.id === id ? { ...v, [field]: value } : v));
+    };
+
+    const updateNewVariantAttribute = (variantId: string, attrId: number, valueId: number) => {
+        setNewVariants(prev => prev.map(v => {
+            if (v.id === variantId) {
+                return {
+                    ...v,
+                    attributes: { ...v.attributes, [attrId]: valueId }
+                };
+            }
+            return v;
+        }));
+    };
 
     // Edit Variant State
     const [isEditSkuOpen, setIsEditSkuOpen] = useState(false);
@@ -336,13 +370,19 @@ export const ProductDetails: React.FC = () => {
     const addVariantMutation = useMutation({
         mutationFn: async () => {
             const formData = new FormData();
-            formData.append('variants[0][price]', newVariant.price || product?.price || '0');
-            formData.append('variants[0][quantity]', newVariant.quantity);
-            if (newVariant.image) {
-                formData.append('variants[0][image]', newVariant.image);
-            }
-            Object.values(newVariant.attributes).forEach((valueId, index) => {
-                formData.append(`variants[0][attributes][${index}]`, String(valueId));
+
+            newVariants.forEach((variant, index) => {
+                formData.append(`variants[${index}][price]`, variant.price || product?.price || '0');
+                formData.append(`variants[${index}][quantity]`, variant.quantity);
+                if (variant.discount_price) {
+                    formData.append(`variants[${index}][discount_price]`, variant.discount_price);
+                }
+                if (variant.image) {
+                    formData.append(`variants[${index}][image]`, variant.image);
+                }
+                Object.values(variant.attributes).forEach((valueId, attrIndex) => {
+                    formData.append(`variants[${index}][attributes][${attrIndex}]`, String(valueId));
+                });
             });
 
             const response = await fetch(endpoints.products.addSku(Number(id)), {
@@ -354,19 +394,22 @@ export const ProductDetails: React.FC = () => {
         },
         onSuccess: (data) => {
             if (data.success) {
-                alert('Variant added successfully');
-                setIsAddVariantOpen(false);
-                setNewVariant({ price: '', quantity: '0', attributes: {}, image: null });
+                alert('Variants added successfully');
+                setNewVariants([]);
                 queryClient.invalidateQueries({ queryKey: ['product', id] });
                 queryClient.invalidateQueries({ queryKey: ['skuAttributes', id] });
             } else {
-                alert(`Failed to add variant: ${data.message || JSON.stringify(data.errors)}`);
+                alert(`Failed to add variants: ${data.message || JSON.stringify(data.errors)}`);
             }
         },
-        onError: () => alert('Error adding variant')
+        onError: () => alert('Error adding variants')
     });
 
     const handleAddVariant = () => {
+        if (newVariants.length === 0) {
+            alert('Please add at least one variant row.');
+            return;
+        }
         addVariantMutation.mutate();
     };
 
@@ -402,6 +445,16 @@ export const ProductDetails: React.FC = () => {
 
     const handleUpdateSku = () => {
         updateSkuMutation.mutate();
+    };
+
+    const handleOpenEditSku = (sku: ProductSku) => {
+        setEditingSku(sku);
+        setEditSkuForm({
+            price: String(sku.price),
+            quantity: String(sku.quantity),
+            discount_price: sku.discount_price ? String(sku.discount_price) : ''
+        });
+        setIsEditSkuOpen(true);
     };
 
     const deleteSkuMutation = useMutation({
@@ -724,12 +777,6 @@ export const ProductDetails: React.FC = () => {
                         <div className="p-6 border-b border-gray-200 flex justify-between items-center">
                             <h2 className="text-lg font-semibold text-gray-900">Product Variants</h2>
                             <h2 className="text-lg font-semibold text-gray-900">Product Variants</h2>
-                            <button
-                                onClick={() => setIsAddVariantOpen(true)}
-                                className="text-sm font-medium text-primary-600 hover:text-primary-700 flex items-center gap-1"
-                            >
-                                <Plus className="h-4 w-4" /> Add Variant
-                            </button>
                         </div>
                         <div className="overflow-x-auto">
                             <table className="min-w-full divide-y divide-gray-200">
@@ -874,91 +921,110 @@ export const ProductDetails: React.FC = () => {
                 </div>
             </div>
 
-            {/* Add Variant Modal */}
-            {isAddVariantOpen && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6 space-y-4 max-h-[90vh] overflow-y-auto">
-                        <div className="flex justify-between items-center border-b pb-4">
-                            <h3 className="text-lg font-bold text-gray-900">Add New Variant</h3>
-                            <button onClick={() => setIsAddVariantOpen(false)} className="text-gray-400 hover:text-gray-600">
-                                <X className="h-5 w-5" />
-                            </button>
-                        </div>
+            {/* Add New Variants Section (Inline) */}
+            <div className="bg-white rounded-xl shadow-sm ring-1 ring-gray-200 p-6 lg:col-span-2">
+                <div className="flex justify-between items-center mb-6">
+                    <h2 className="text-lg font-semibold text-gray-900">Add New Variants</h2>
 
-                        <div className="space-y-4">
-                            {/* Attributes */}
-                            {availableAttributes.map((attr: Attribute) => (
-                                <div key={attr.id} className="space-y-1">
-                                    <label className="block text-sm font-medium text-gray-700">{attr.name}</label>
-                                    <select
-                                        className={inputClasses}
-                                        value={newVariant.attributes[attr.id] || ''}
-                                        onChange={(e) => setNewVariant({
-                                            ...newVariant,
-                                            attributes: { ...newVariant.attributes, [attr.id]: Number(e.target.value) }
-                                        })}
-                                    >
-                                        <option value="">Select {attr.name}</option>
-                                        {attr.values.map((val: AttributeValue) => (
-                                            <option key={val.id} value={val.id}>{val.name}</option>
-                                        ))}
-                                    </select>
-                                </div>
-                            ))}
-
-                            {/* Price & Quantity */}
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="space-y-1">
-                                    <label className="block text-sm font-medium text-gray-700">Price (Override)</label>
-                                    <input
-                                        type="number"
-                                        className={inputClasses}
-                                        placeholder={product.price}
-                                        value={newVariant.price}
-                                        onChange={(e) => setNewVariant({ ...newVariant, price: e.target.value })}
-                                    />
-                                </div>
-                                <div className="space-y-1">
-                                    <label className="block text-sm font-medium text-gray-700">Quantity</label>
-                                    <input
-                                        type="number"
-                                        className={inputClasses}
-                                        value={newVariant.quantity}
-                                        onChange={(e) => setNewVariant({ ...newVariant, quantity: e.target.value })}
-                                    />
-                                </div>
-                            </div>
-
-                            {/* Image Upload */}
-                            <div className="space-y-1">
-                                <label className="block text-sm font-medium text-gray-700">Variant Image</label>
-                                <input
-                                    type="file"
-                                    accept="image/*"
-                                    className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary-50 file:text-primary-700 hover:file:bg-primary-100"
-                                    onChange={(e) => setNewVariant({ ...newVariant, image: e.target.files?.[0] || null })}
-                                />
-                            </div>
-                        </div>
-
-                        <div className="flex justify-end pt-4 gap-2">
-                            <button
-                                onClick={() => setIsAddVariantOpen(false)}
-                                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                onClick={handleAddVariant}
-                                disabled={addVariantMutation.isPending}
-                                className="w-full py-2.5 px-4 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 font-medium transition-colors"
-                            >
-                                {addVariantMutation.isPending ? 'Adding Variant...' : 'Add Variant'}
-                            </button>
-                        </div>
+                    <div className="flex gap-2">
+                        <button
+                            onClick={addNewVariantRow}
+                            className="text-sm font-medium text-primary-600 hover:text-primary-700 flex items-center gap-1"
+                        >
+                            <Plus className="h-4 w-4" /> Add Another Row
+                        </button>
                     </div>
                 </div>
-            )}
+
+                <div className="space-y-6">
+                    {newVariants.length > 0 ? (
+                        <div className="space-y-6">
+                            {newVariants.map((variant, index) => (
+                                <div key={variant.id} className="p-4 border border-gray-200 rounded-lg space-y-4 bg-gray-50 relative">
+                                    <div className="flex justify-between items-start">
+                                        <h4 className="font-medium text-gray-900">New Variant #{index + 1}</h4>
+                                        <button onClick={() => removeNewVariantRow(variant.id)} className="text-red-500 hover:text-red-700">
+                                            <Trash2 className="h-4 w-4" />
+                                        </button>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                        {/* Attributes */}
+                                        {availableAttributes.map((attr: Attribute) => (
+                                            <div key={attr.id} className="space-y-1">
+                                                <label className="block text-xs font-medium text-gray-500">{attr.name}</label>
+                                                <select
+                                                    className={inputClasses}
+                                                    value={variant.attributes[attr.id] || ''}
+                                                    onChange={(e) => updateNewVariantAttribute(variant.id, attr.id, Number(e.target.value))}
+                                                >
+                                                    <option value="">Select {attr.name}</option>
+                                                    {attr.values.map((val: AttributeValue) => (
+                                                        <option key={val.id} value={val.id}>{val.name}</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                        ))}
+                                    </div>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                                        <div className="space-y-1">
+                                            <label className="block text-xs font-medium text-gray-500">Price</label>
+                                            <input
+                                                type="number"
+                                                value={variant.price}
+                                                onChange={(e) => updateNewVariant(variant.id, 'price', e.target.value)}
+                                                className="w-full px-3 py-1.5 rounded border border-gray-300 text-sm"
+                                            />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <label className="block text-xs font-medium text-gray-500">Quantity</label>
+                                            <input
+                                                type="number"
+                                                value={variant.quantity}
+                                                onChange={(e) => updateNewVariant(variant.id, 'quantity', e.target.value)}
+                                                className="w-full px-3 py-1.5 rounded border border-gray-300 text-sm"
+                                            />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <label className="block text-xs font-medium text-gray-500">Discount Price</label>
+                                            <input
+                                                type="number"
+                                                value={variant.discount_price}
+                                                onChange={(e) => updateNewVariant(variant.id, 'discount_price', e.target.value)}
+                                                className="w-full px-3 py-1.5 rounded border border-gray-300 text-sm"
+                                            />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <label className="block text-xs font-medium text-gray-500">Image</label>
+                                            <input
+                                                type="file"
+                                                accept="image/*"
+                                                onChange={(e) => updateNewVariant(variant.id, 'image', e.target.files?.[0] || null)}
+                                                className="w-full text-xs text-gray-500"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="p-8 text-center text-gray-500 bg-gray-50 rounded-lg border-2 border-dashed border-gray-200">
+                            <p>No new variants added. Click "Add Another Row" to start adding variants.</p>
+                        </div>
+                    )}
+
+                    <div className="flex justify-end pt-4">
+                        <button
+                            onClick={handleAddVariant}
+                            disabled={addVariantMutation.isPending || newVariants.length === 0}
+                            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 disabled:opacity-50 transition-colors"
+                        >
+                            {addVariantMutation.isPending ? 'Saving...' : 'Save New Variants'}
+                        </button>
+                    </div>
+                </div>
+            </div>
 
             {/* Edit SKU Modal */}
             {isEditSkuOpen && (

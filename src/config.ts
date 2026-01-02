@@ -16,6 +16,10 @@ export const endpoints = {
         updateStatus: (id: number) => `${API_BASE_URL}/products/${id}/status`,
         getById: (id: number | string) => `${API_BASE_URL}/products/${id}`,
         skuAttributes: (id: number | string) => `${API_BASE_URL}/products/${id}/sku-attributes`,
+        addSku: (id: number | string) => `${API_BASE_URL}/products/${id}/skus`,
+        updateSku: (productId: number | string, skuId: number | string) => `${API_BASE_URL}/products/${productId}/skus/${skuId}`,
+        deleteSkuData: (productId: number | string) => `${API_BASE_URL}/products/${productId}/sku-data`,
+        delete: (id: number | string) => `${API_BASE_URL}/products/${id}`,
         images: {
             upload: (id: number | string) => `${API_BASE_URL}/products/${id}/images`,
             delete: (productId: number | string, imageId: number | string) => `${API_BASE_URL}/products/${productId}/images/${imageId}`,

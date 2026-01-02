@@ -87,6 +87,36 @@ export const Products: React.FC = () => {
         return () => clearTimeout(timer);
     }, [searchTerm]);
 
+    const handleDeleteProduct = async (id: number) => {
+        if (!confirm('Are you sure you want to delete this product?')) return;
+
+        try {
+            const url = endpoints.products.delete(id);
+            const headers: HeadersInit = {
+                'Content-Type': 'application/json',
+                ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            };
+
+            const response = await fetch(url, {
+                method: 'DELETE',
+                headers,
+            });
+
+            const data = await response.json();
+
+            if (data.success || response.ok) {
+                // Remove the product from the local state
+                setProducts(products.filter(product => product.id !== id));
+                setTotalItems(prev => prev - 1);
+            } else {
+                alert(`Failed to delete product: ${data.message}`);
+            }
+        } catch (error) {
+            console.error('Error deleting product:', error);
+            alert('An error occurred while deleting the product.');
+        }
+    };
+
     const handleStatusToggle = async (id: number) => {
         try {
             const url = endpoints.products.updateStatus(id);
@@ -211,7 +241,12 @@ export const Products: React.FC = () => {
                                                 >
                                                     <Edit className="h-4 w-4" />
                                                 </button>
-                                                <button className="text-gray-400 hover:text-red-600 transition-colors"><Trash2 className="h-4 w-4" /></button>
+                                                <button
+                                                    onClick={() => handleDeleteProduct(product.id)}
+                                                    className="text-gray-400 hover:text-red-600 transition-colors"
+                                                >
+                                                    <Trash2 className="h-4 w-4" />
+                                                </button>
                                             </div>
                                         </td>
                                     </tr>

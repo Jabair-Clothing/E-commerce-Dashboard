@@ -13,6 +13,7 @@ export const endpoints = {
     },
     products: {
         all: `${API_BASE_URL}/products`,
+        create: `${API_BASE_URL}/products`,
         updateStatus: (id: number) => `${API_BASE_URL}/products/${id}/status`,
         getById: (id: number | string) => `${API_BASE_URL}/products/${id}`,
         skuAttributes: (id: number | string) => `${API_BASE_URL}/products/${id}/sku-attributes`,

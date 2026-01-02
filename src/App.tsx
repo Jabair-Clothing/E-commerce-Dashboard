@@ -9,6 +9,7 @@ import { Products } from './pages/Products';
 import { Categories } from './pages/Categories';
 import { Attributes } from './pages/Attributes';
 import { Profile } from './pages/Profile';
+import { AddProduct } from './pages/AddProduct';
 
 function App() {
   return (
@@ -24,6 +25,7 @@ function App() {
           }>
             <Route index element={<Dashboard />} />
             <Route path="products" element={<Products />} />
+            <Route path="products/new" element={<AddProduct />} />
             <Route path="products/:id" element={<ProductDetails />} />
             <Route path="categories" element={<Categories />} />
             <Route path="attributes" element={<Attributes />} />

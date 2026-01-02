@@ -1,14 +1,48 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Package, Mail, Lock, ArrowRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import { endpoints } from '../config';
 
 export const Login: React.FC = () => {
     const navigate = useNavigate();
+    const { login } = useAuth();
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
 
-    const handleLogin = (e: React.FormEvent) => {
+    const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
-        // Simulate login
-        navigate('/');
+        setLoading(true);
+        setError(null);
+
+        const formData = new FormData(e.currentTarget);
+        const email = formData.get('email') as string;
+        const password = formData.get('password') as string;
+
+        try {
+            const response = await fetch(endpoints.login, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                },
+                body: JSON.stringify({ email, password }),
+            });
+
+            const data = await response.json();
+
+            if (data.success && data.data) {
+                login(data.data.token, data.data.user);
+                navigate('/');
+            } else {
+                setError(data.message || data.errors || 'Login failed');
+            }
+        } catch (err) {
+            setError('Failed to connect to the server.');
+            console.error(err);
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (
@@ -27,19 +61,25 @@ export const Login: React.FC = () => {
                     <p className="text-sm text-gray-500 mt-2">Sign in to your dashboard</p>
                 </div>
 
+                {error && (
+                    <div className="mb-4 p-3 bg-red-100 border border-red-200 text-red-700 rounded-lg text-sm text-center">
+                        {error}
+                    </div>
+                )}
+
                 <form onSubmit={handleLogin} className="space-y-6">
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Email Address</label>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
                         <div className="relative">
                             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                                 <Mail className="h-5 w-5 text-gray-400" />
                             </div>
                             <input
                                 type="email"
+                                name="email"
                                 required
                                 className="block w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 bg-white/50 transition-all"
                                 placeholder="admin@example.com"
-                                defaultValue="admin@example.com"
                             />
                         </div>
                     </div>
@@ -52,10 +92,10 @@ export const Login: React.FC = () => {
                             </div>
                             <input
                                 type="password"
+                                name="password"
                                 required
                                 className="block w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 bg-white/50 transition-all"
                                 placeholder="••••••••"
-                                defaultValue="password"
                             />
                         </div>
                     </div>
@@ -76,10 +116,15 @@ export const Login: React.FC = () => {
 
                     <button
                         type="submit"
-                        className="w-full flex justify-center items-center gap-2 py-2.5 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-colors"
+                        disabled={loading}
+                        className="w-full flex justify-center items-center gap-2 py-2.5 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-colors disabled:opacity-70 disabled:cursor-not-allowed"
                     >
-                        Sign in
-                        <ArrowRight className="h-4 w-4" />
+                        {loading ? 'Signing in...' : (
+                            <>
+                                Sign in
+                                <ArrowRight className="h-4 w-4" />
+                            </>
+                        )}
                     </button>
                 </form>
             </div>

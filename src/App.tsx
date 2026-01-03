@@ -16,6 +16,7 @@ const Attributes = React.lazy(() => import('./pages/Attributes').then(module => 
 const Coupons = React.lazy(() => import('./pages/Coupons').then(module => ({ default: module.Coupons })));
 const Profile = React.lazy(() => import('./pages/Profile').then(module => ({ default: module.Profile })));
 const Ratings = React.lazy(() => import('./pages/Ratings').then(module => ({ default: module.Ratings })));
+const Settings = React.lazy(() => import('./pages/Settings').then(module => ({ default: module.Settings })));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -56,6 +57,7 @@ function App() {
                 <Route path="coupons" element={<Coupons />} />
                 <Route path="ratings" element={<Ratings />} />
                 <Route path="profile" element={<Profile />} />
+                <Route path="settings" element={<Settings />} />
               </Route>
 
               <Route path="*" element={<Navigate to="/" replace />} />

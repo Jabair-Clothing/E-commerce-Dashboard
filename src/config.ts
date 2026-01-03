@@ -39,5 +39,9 @@ export const endpoints = {
         create: `${API_BASE_URL}/ratings`,
         toggleStatus: (id: number | string) => `${API_BASE_URL}/ratings/toggle-status/${id}`,
         delete: (id: number | string) => `${API_BASE_URL}/ratings/${id}`,
+    },
+    orderInfo: {
+        get: `${API_BASE_URL}/orderinfo`,
+        update: `${API_BASE_URL}/orderinfo`,
     }
 };

@@ -24,7 +24,7 @@ interface Coupon {
     end_date: string | null;
     status: number;
     products?: { id: number; name: string }[];
-    items?: { id: number; name: string }[]; // Keep for backward compatibility or if backend still sends it
+    items?: { id: number; name: string }[]; 
     total_orders?: number;
     total_sales?: number;
 }

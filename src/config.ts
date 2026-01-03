@@ -33,5 +33,11 @@ export const endpoints = {
         toggleStatus: (id: number | string) => `${API_BASE_URL}/coupons/toggle-status/${id}`,
         delete: (id: number | string) => `${API_BASE_URL}/coupons/${id}`,
         update: (id: number | string) => `${API_BASE_URL}/coupons/${id}`,
+    },
+    ratings: {
+        all: `${API_BASE_URL}/ratings`,
+        create: `${API_BASE_URL}/ratings`,
+        toggleStatus: (id: number | string) => `${API_BASE_URL}/ratings/toggle-status/${id}`,
+        delete: (id: number | string) => `${API_BASE_URL}/ratings/${id}`,
     }
 };

@@ -33,7 +33,5 @@ export const endpoints = {
         toggleStatus: (id: number | string) => `${API_BASE_URL}/coupons/toggle-status/${id}`,
         delete: (id: number | string) => `${API_BASE_URL}/coupons/${id}`,
         update: (id: number | string) => `${API_BASE_URL}/coupons/${id}`,
-        addItems: (id: number | string) => `${API_BASE_URL}/coupons/add-items/${id}`,
-        removeItems: (id: number | string) => `${API_BASE_URL}/coupons/remove-items/${id}`,
     }
 };

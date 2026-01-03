@@ -23,7 +23,8 @@ interface Coupon {
     start_date: string | null;
     end_date: string | null;
     status: number;
-    items?: { id: number; name: string }[];
+    products?: { id: number; name: string }[];
+    items?: { id: number; name: string }[]; // Keep for backward compatibility or if backend still sends it
     total_orders?: number;
     total_sales?: number;
 }
@@ -38,7 +39,7 @@ interface CreateCouponForm {
     max_usage_per_user: string;
     start_date: string;
     end_date: string;
-    item_ids: number[];
+    product_ids: number[];
 }
 
 export const Coupons = () => {
@@ -56,10 +57,9 @@ export const Coupons = () => {
         max_usage_per_user: '',
         start_date: '',
         end_date: '',
-        item_ids: []
+        product_ids: []
     });
 
-    // Product Search State
     // Product Search State
     const [productSearch, setProductSearch] = useState('');
     const [isProductDropdownOpen, setIsProductDropdownOpen] = useState(false);
@@ -67,10 +67,8 @@ export const Coupons = () => {
     const [viewItems, setViewItems] = useState<{ id: number; name: string }[] | null>(null);
     const [editId, setEditId] = useState<number | null>(null);
 
-
-
     // Fetch Coupons
-    const { data: couponsData, isLoading } = useQuery({
+    const { data: couponsData, isLoading, isError, error } = useQuery({
         queryKey: ['coupons', page, search],
         queryFn: async () => {
             const params = new URLSearchParams({
@@ -83,7 +81,10 @@ export const Coupons = () => {
                     'Authorization': `Bearer ${localStorage.getItem('token')}`
                 }
             });
-            if (!response.ok) throw new Error('Failed to fetch coupons');
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.message || `Error ${response.status}: ${response.statusText}`);
+            }
             return response.json();
         }
     });
@@ -99,11 +100,7 @@ export const Coupons = () => {
             });
             if (!response.ok) throw new Error('Failed to fetch products');
             const data = await response.json();
-
-            // The API returns { success: true, data: { data: Product[], ... } }
             const productsList = data.data?.data || [];
-
-            // Client-side filtering as backend might not support search yet or it returns all
             if (productSearch) {
                 return productsList.filter((p: Product) =>
                     p.name.toLowerCase().includes(productSearch.toLowerCase())
@@ -111,7 +108,7 @@ export const Coupons = () => {
             }
             return productsList;
         },
-        enabled: !formData.is_global && isProductDropdownOpen
+        enabled: !formData.is_global // Fetch whenever specific items are needed
     });
 
     // Mutations
@@ -129,7 +126,7 @@ export const Coupons = () => {
                     min_pur: newCoupon.min_pur ? Number(newCoupon.min_pur) : null,
                     max_usage: newCoupon.max_usage ? Number(newCoupon.max_usage) : null,
                     max_usage_per_user: newCoupon.max_usage_per_user ? Number(newCoupon.max_usage_per_user) : null,
-                    item_ids: newCoupon.is_global ? [] : newCoupon.item_ids
+                    product_ids: newCoupon.is_global ? [] : newCoupon.product_ids
                 })
             });
             if (!response.ok) {
@@ -168,7 +165,7 @@ export const Coupons = () => {
                     max_usage_per_user: data.max_usage_per_user ? Number(data.max_usage_per_user) : null,
                     start_date: data.start_date,
                     end_date: data.end_date,
-                    item_ids: data.is_global ? [] : data.item_ids
+                    product_ids: data.is_global ? [] : data.product_ids
                 })
             });
             if (!response.ok) throw new Error('Failed to update coupon');
@@ -179,46 +176,6 @@ export const Coupons = () => {
             setIsCreateModalOpen(false);
             resetForm();
             alert('Coupon updated successfully');
-        },
-        onError: (error) => alert(error.message)
-    });
-
-    const addItemsMutation = useMutation({
-        mutationFn: async ({ id, item_ids }: { id: number; item_ids: number[] }) => {
-            const response = await fetch(endpoints.coupons.addItems(id), {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`
-                },
-                body: JSON.stringify({ item_ids })
-            });
-            if (!response.ok) throw new Error('Failed to add items');
-            return response.json();
-        },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['coupons'] });
-            // Should also re-fetch the specific coupon details if we had a detailed view, 
-            // but for now we rely on local state update or main list refresh
-        },
-        onError: (error) => alert(error.message)
-    });
-
-    const removeItemsMutation = useMutation({
-        mutationFn: async ({ id, item_id }: { id: number; item_id: number }) => {
-            const response = await fetch(endpoints.coupons.removeItems(id), {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`
-                },
-                body: JSON.stringify({ item_id })
-            });
-            if (!response.ok) throw new Error('Failed to remove item');
-            return response.json();
-        },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['coupons'] });
         },
         onError: (error) => alert(error.message)
     });
@@ -236,7 +193,8 @@ export const Coupons = () => {
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['coupons'] });
-        }
+        },
+        onError: (error) => alert(error.message)
     });
 
     const deleteMutation = useMutation({
@@ -252,7 +210,9 @@ export const Coupons = () => {
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['coupons'] });
-        }
+            alert('Coupon deleted successfully');
+        },
+        onError: (error) => alert(error.message)
     });
 
     const resetForm = () => {
@@ -266,7 +226,7 @@ export const Coupons = () => {
             max_usage_per_user: '',
             start_date: '',
             end_date: '',
-            item_ids: []
+            product_ids: []
         });
         setSelectedProducts([]);
         setEditId(null);
@@ -277,26 +237,12 @@ export const Coupons = () => {
     const handleProductSelect = (product: Product) => {
         if (selectedProducts.find(p => p.id === product.id)) {
             // Remove
-            if (editId) {
-                if (window.confirm(`Remove ${product.name} from this coupon?`)) {
-                    removeItemsMutation.mutate({ id: editId, item_id: product.id });
-                    setSelectedProducts(prev => prev.filter(p => p.id !== product.id));
-                    setFormData(prev => ({ ...prev, item_ids: prev.item_ids.filter(id => id !== product.id) }));
-                }
-            } else {
-                setSelectedProducts(prev => prev.filter(p => p.id !== product.id));
-                setFormData(prev => ({ ...prev, item_ids: prev.item_ids.filter(id => id !== product.id) }));
-            }
+            setSelectedProducts(prev => prev.filter(p => p.id !== product.id));
+            setFormData(prev => ({ ...prev, product_ids: prev.product_ids.filter(id => id !== product.id) }));
         } else {
             // Add
-            if (editId) {
-                addItemsMutation.mutate({ id: editId, item_ids: [product.id] });
-                setSelectedProducts(prev => [...prev, product]);
-                setFormData(prev => ({ ...prev, item_ids: [...prev.item_ids, product.id] }));
-            } else {
-                setSelectedProducts(prev => [...prev, product]);
-                setFormData(prev => ({ ...prev, item_ids: [...prev.item_ids, product.id] }));
-            }
+            setSelectedProducts(prev => [...prev, product]);
+            setFormData(prev => ({ ...prev, product_ids: [...prev.product_ids, product.id] }));
         }
     };
 
@@ -325,164 +271,169 @@ export const Coupons = () => {
                 </button>
             </div>
 
-            {/* Search and List */}
-            <div className="rounded-xl bg-white shadow-sm ring-1 ring-gray-200 overflow-hidden">
-                <div className="border-b border-gray-200 p-4">
-                    <div className="relative max-w-md">
-                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                            <Search className="h-5 w-5 text-gray-400" />
-                        </div>
-                        <input
-                            type="text"
-                            placeholder="Search coupons..."
-                            value={search}
-                            onChange={(e) => setSearch(e.target.value)}
-                            className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-primary-500 focus:border-primary-500 sm:text-sm transition duration-150 ease-in-out"
-                        />
+            {isError ? (
+                <div className="rounded-xl bg-red-50 p-6 border border-red-200 text-center">
+                    <div className="flex flex-col items-center gap-2 text-red-700">
+                        <X className="h-8 w-8 text-red-500" />
+                        <h3 className="text-lg font-semibold">Failed to load coupons</h3>
+                        <p className="text-sm">{error instanceof Error ? error.message : 'An unknown error occurred'}</p>
+                        <p className="text-xs text-red-500 mt-2 max-w-lg mx-auto">
+                            If you recently updated the backend, please check that the <code>CouponController::index</code> method relies on the <code>products</code> relationship instead of <code>items</code>.
+                        </p>
                     </div>
                 </div>
+            ) : (
+                <div className="rounded-xl bg-white shadow-sm ring-1 ring-gray-200 overflow-hidden">
+                    <div className="border-b border-gray-200 p-4">
+                        <div className="relative max-w-md">
+                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <Search className="h-5 w-5 text-gray-400" />
+                            </div>
+                            <input
+                                type="text"
+                                placeholder="Search coupons..."
+                                value={search}
+                                onChange={(e) => setSearch(e.target.value)}
+                                className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-primary-500 focus:border-primary-500 sm:text-sm transition duration-150 ease-in-out"
+                            />
+                        </div>
+                    </div>
 
-                <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200">
-                        <thead className="bg-gray-50">
-                            <tr>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Code</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Discount</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Scope</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Usage</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody className="bg-white divide-y divide-gray-200">
-                            {isLoading ? (
+                    <div className="overflow-x-auto">
+                        <table className="min-w-full divide-y divide-gray-200">
+                            <thead className="bg-gray-50">
                                 <tr>
-                                    <td colSpan={6} className="px-6 py-4 text-center text-sm text-gray-500">Loading coupons...</td>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Code</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Discount</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Scope</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Usage</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                                 </tr>
-                            ) : couponsData?.data?.length === 0 ? (
-                                <tr>
-                                    <td colSpan={6} className="px-6 py-4 text-center text-sm text-gray-500">No coupons found</td>
-                                </tr>
-                            ) : (
-                                couponsData?.data?.map((coupon: Coupon) => (
-                                    <tr key={coupon.id} className="hover:bg-gray-50 transition-colors">
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <div className="text-sm font-medium text-gray-900">{coupon.code}</div>
-                                            <div className="text-xs text-gray-500">
-                                                {coupon.start_date} - {coupon.end_date}
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                                {coupon.type === 'flat' ? '৳' : ''}{coupon.amount}{coupon.type === 'percent' ? '%' : ''}
-                                            </span>
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            <div className="text-sm text-gray-900">
-                                                {coupon.is_global ? (
-                                                    <span className="text-gray-900">Global</span>
-                                                ) : (
-                                                    <button
-                                                        onClick={() => setViewItems(coupon.items || [])}
-                                                        className="text-primary-600 hover:text-primary-800 hover:underline font-medium focus:outline-none"
-                                                    >
-                                                        Specific Items
-                                                    </button>
-                                                )}
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                            <div>Limits: {coupon.max_usage || '∞'} total</div>
-                                            <div>Used: {coupon.total_orders || 0} times</div>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <button
-                                                onClick={() => toggleStatusMutation.mutate(coupon.id)}
-                                                className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium cursor-pointer transition-colors ${coupon.status === 1 ? 'bg-green-100 text-green-800 hover:bg-green-200' : 'bg-red-100 text-red-800 hover:bg-red-200'}`}
-                                            >
-                                                {coupon.status === 1 ? 'Active' : 'Inactive'}
-                                            </button>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium relative">
-                                            <div className="flex items-center justify-end gap-2">
-                                                <button
-                                                    onClick={() => {
-                                                        // Placeholder for edit functionality
-                                                        // For now just populate form and open modal as "Create" (or we can implement full Edit later)
-                                                        // Populate form for editing
-                                                        setEditId(coupon.id);
-                                                        setFormData({
-                                                            code: coupon.code,
-                                                            amount: String(coupon.amount),
-                                                            type: coupon.type,
-                                                            is_global: Boolean(coupon.is_global),
-                                                            min_pur: coupon.min_pur ? String(coupon.min_pur) : '',
-                                                            max_usage: coupon.max_usage ? String(coupon.max_usage) : '',
-                                                            max_usage_per_user: coupon.max_usage_per_user ? String(coupon.max_usage_per_user) : '',
-                                                            start_date: coupon.start_date || '',
-                                                            end_date: coupon.end_date || '',
-                                                            item_ids: coupon.items?.map(i => i.id) || []
-                                                        });
-
-                                                        // For editing, we need selectedProducts to populate the UI
-                                                        // Since we only have id and name in coupon.items, we map to partial Product objects
-                                                        // (assuming image/price aren't critical for the chip view or we accept they are missing)
-                                                        const existingProducts = coupon.items?.map(i => ({
-                                                            id: i.id,
-                                                            name: i.name,
-                                                            price: '0', // Placeholder
-                                                            image: null // Placeholder
-                                                        })) || [];
-                                                        setSelectedProducts(existingProducts);
-
-                                                        setIsCreateModalOpen(true);
-                                                    }}
-                                                    className="text-gray-400 hover:text-primary-600 transition-colors"
-                                                >
-                                                    <Edit className="h-4 w-4" />
-                                                </button>
-                                                <button
-                                                    onClick={() => {
-                                                        if (window.confirm('Are you sure you want to delete this coupon?')) {
-                                                            deleteMutation.mutate(coupon.id);
-                                                        }
-                                                    }}
-                                                    className="text-gray-400 hover:text-red-600 transition-colors"
-                                                >
-                                                    <Trash2 className="h-4 w-4" />
-                                                </button>
-                                            </div>
-                                        </td>
+                            </thead>
+                            <tbody className="bg-white divide-y divide-gray-200">
+                                {isLoading ? (
+                                    <tr>
+                                        <td colSpan={6} className="px-6 py-4 text-center text-sm text-gray-500">Loading coupons...</td>
                                     </tr>
-                                ))
-                            )}
-                        </tbody>
-                    </table>
-                </div>
+                                ) : couponsData?.data?.length === 0 ? (
+                                    <tr>
+                                        <td colSpan={6} className="px-6 py-4 text-center text-sm text-gray-500">No coupons found</td>
+                                    </tr>
+                                ) : (
+                                    couponsData?.data?.map((coupon: Coupon) => (
+                                        <tr key={coupon.id} className="hover:bg-gray-50 transition-colors">
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <div className="text-sm font-medium text-gray-900">{coupon.code}</div>
+                                                <div className="text-xs text-gray-500">
+                                                    {coupon.start_date} - {coupon.end_date}
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                                    {coupon.type === 'flat' ? '৳' : ''}{coupon.amount}{coupon.type === 'percent' ? '%' : ''}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <div className="text-sm text-gray-900">
+                                                    {coupon.is_global ? (
+                                                        <span className="text-gray-900">Global</span>
+                                                    ) : (
+                                                        <button
+                                                            onClick={() => setViewItems(coupon.products || coupon.items || [])}
+                                                            className="text-primary-600 hover:text-primary-800 hover:underline font-medium focus:outline-none"
+                                                        >
+                                                            Specific Items
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                <div>Limits: {coupon.max_usage || '∞'} total</div>
+                                                <div>Used: {coupon.total_orders || 0} times</div>
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <button
+                                                    onClick={() => toggleStatusMutation.mutate(coupon.id)}
+                                                    className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium cursor-pointer transition-colors ${coupon.status === 1 ? 'bg-green-100 text-green-800 hover:bg-green-200' : 'bg-red-100 text-red-800 hover:bg-red-200'}`}
+                                                >
+                                                    {coupon.status === 1 ? 'Active' : 'Inactive'}
+                                                </button>
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium relative">
+                                                <div className="flex items-center justify-end gap-2">
+                                                    <button
+                                                        onClick={() => {
+                                                            setEditId(coupon.id);
+                                                            const associatedItems = coupon.products || coupon.items || [];
+                                                            setFormData({
+                                                                code: coupon.code,
+                                                                amount: String(coupon.amount),
+                                                                type: coupon.type,
+                                                                is_global: Boolean(coupon.is_global),
+                                                                min_pur: coupon.min_pur ? String(coupon.min_pur) : '',
+                                                                max_usage: coupon.max_usage ? String(coupon.max_usage) : '',
+                                                                max_usage_per_user: coupon.max_usage_per_user ? String(coupon.max_usage_per_user) : '',
+                                                                start_date: coupon.start_date || '',
+                                                                end_date: coupon.end_date || '',
+                                                                product_ids: associatedItems.map(i => i.id)
+                                                            });
+                                                            const existingProducts = associatedItems.map(i => ({
+                                                                id: i.id,
+                                                                name: i.name,
+                                                                price: '0',
+                                                                image: null
+                                                            }));
+                                                            setSelectedProducts(existingProducts);
+                                                            setIsCreateModalOpen(true);
+                                                        }}
+                                                        className="text-gray-400 hover:text-primary-600 transition-colors"
+                                                    >
+                                                        <Edit className="h-4 w-4" />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => {
+                                                            if (window.confirm('Are you sure you want to delete this coupon?')) {
+                                                                deleteMutation.mutate(coupon.id);
+                                                            }
+                                                        }}
+                                                        className="text-gray-400 hover:text-red-600 transition-colors"
+                                                    >
+                                                        <Trash2 className="h-4 w-4" />
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
 
-                {/* Pagination */}
-                <div className="border-t border-gray-200 px-6 py-4">
-                    <div className="flex items-center justify-between text-sm text-gray-500">
-                        <p>Showing {couponsData?.data?.length || 0} results</p>
-                        <div className="flex gap-2">
-                            <button
-                                onClick={() => setPage(p => Math.max(1, p - 1))}
-                                disabled={page === 1}
-                                className="disabled:opacity-50 hover:text-gray-900"
-                            >
-                                Previous
-                            </button>
-                            <button
-                                onClick={() => setPage(p => p + 1)}
-                                disabled={!couponsData?.pagination || page === couponsData.pagination.total_pages}
-                                className="disabled:opacity-50 hover:text-gray-900"
-                            >
-                                Next
-                            </button>
+                    {/* Pagination */}
+                    <div className="border-t border-gray-200 px-6 py-4">
+                        <div className="flex items-center justify-between text-sm text-gray-500">
+                            <p>Showing {couponsData?.data?.length || 0} results</p>
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={() => setPage(p => Math.max(1, p - 1))}
+                                    disabled={page === 1}
+                                    className="disabled:opacity-50 hover:text-gray-900"
+                                >
+                                    Previous
+                                </button>
+                                <button
+                                    onClick={() => setPage(p => p + 1)}
+                                    disabled={!couponsData?.pagination || page === couponsData.pagination.total_pages}
+                                    className="disabled:opacity-50 hover:text-gray-900"
+                                >
+                                    Next
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
-            </div>
+            )}
 
             {/* View Items Modal */}
             {viewItems && createPortal(

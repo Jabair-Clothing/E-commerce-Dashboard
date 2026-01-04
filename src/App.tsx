@@ -18,6 +18,9 @@ const Profile = React.lazy(() => import('./pages/Profile').then(module => ({ def
 const Ratings = React.lazy(() => import('./pages/Ratings').then(module => ({ default: module.Ratings })));
 const Settings = React.lazy(() => import('./pages/Settings').then(module => ({ default: module.Settings })));
 const Orders = React.lazy(() => import('./pages/Orders').then(module => ({ default: module.Orders })));
+const POS = React.lazy(() => import('./pages/POS').then(module => ({ default: module.POS })));
+const Clients = React.lazy(() => import('./pages/Clients').then(module => ({ default: module.Clients })));
+const ClientDetails = React.lazy(() => import('./pages/ClientDetails').then(module => ({ default: module.ClientDetails })));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -44,6 +47,13 @@ function App() {
             <Routes>
               <Route path="/login" element={<Login />} />
 
+              {/* POS Route - Protected but Standalone Layout */}
+              <Route path="/pos" element={
+                <ProtectedRoute>
+                  <POS />
+                </ProtectedRoute>
+              } />
+
               <Route path="/" element={
                 <ProtectedRoute>
                   <DashboardLayout />
@@ -58,6 +68,8 @@ function App() {
                 <Route path="attributes" element={<Attributes />} />
                 <Route path="coupons" element={<Coupons />} />
                 <Route path="ratings" element={<Ratings />} />
+                <Route path="clients" element={<Clients />} />
+                <Route path="clients/:id" element={<ClientDetails />} />
                 <Route path="profile" element={<Profile />} />
                 <Route path="settings" element={<Settings />} />
               </Route>

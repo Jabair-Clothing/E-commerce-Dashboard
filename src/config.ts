@@ -46,5 +46,15 @@ export const endpoints = {
     },
     orders: {
         all: `${API_BASE_URL}/orders`,
+        place: `${API_BASE_URL}/place-order`,
+    },
+    clients: {
+        all: `${API_BASE_URL}/clints`,
+        details: (id: number | string) => `${API_BASE_URL}/clints/all-info/${id}`,
+    },
+    shippingAddresses: {
+        create: `${API_BASE_URL}/shipping-addresses`,
+        update: (id: number | string) => `${API_BASE_URL}/shipping-addresses/${id}`,
+        delete: (id: number | string) => `${API_BASE_URL}/shipping-addresses/${id}`,
     }
 };

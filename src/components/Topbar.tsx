@@ -19,6 +19,17 @@ export const Topbar: React.FC<TopbarProps> = ({ onMenuClick }) => {
                 <Menu className="h-6 w-6" />
             </button>
 
+            {/* Left side actions */}
+            <div className="flex items-center gap-4">
+                <Link
+                    to="/pos"
+                    className="flex items-center gap-2 rounded-lg bg-primary-600 px-3 py-2 text-sm font-medium text-white hover:bg-primary-700 transition-colors shadow-sm"
+                >
+                    <span className="hidden sm:inline">POS System</span>
+                    <span className="sm:hidden">POS</span>
+                </Link>
+            </div>
+
             {/* Spacer to push content to right */}
             <div className="flex-1" />
 

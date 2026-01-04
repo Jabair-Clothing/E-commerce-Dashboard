@@ -1,0 +1,37 @@
+/* Print Styles for Invoice */
+@media print {
+  /* Hide everything except invoice */
+  body * {
+    visibility: hidden;
+  }
+
+  .invoice-container,
+  .invoice-container * {
+    visibility: visible;
+  }
+
+  .invoice-container {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    max-width: none;
+  }
+
+  /* Remove margins and padding from body */
+  body {
+    margin: 0;
+    padding: 0;
+  }
+
+  /* Ensure clean page breaks */
+  .invoice-container {
+    page-break-after: auto;
+  }
+
+  /* Hide print button and other UI elements in print */
+  button,
+  .no-print {
+    display: none !important;
+  }
+}

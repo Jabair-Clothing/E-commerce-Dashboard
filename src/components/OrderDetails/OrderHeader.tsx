@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowLeft, Calendar } from 'lucide-react';
+import { ArrowLeft, Calendar, Printer } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 interface OrderHeaderProps {
@@ -7,6 +7,7 @@ interface OrderHeaderProps {
     status: string;
     createdAt: string;
     onStatusChange: (newStatus: string) => void;
+    onPrintInvoice: () => void;
     isUpdating: boolean;
 }
 
@@ -15,6 +16,7 @@ export const OrderHeader: React.FC<OrderHeaderProps> = ({
     status,
     createdAt,
     onStatusChange,
+    onPrintInvoice,
     isUpdating
 }) => {
     const navigate = useNavigate();
@@ -40,22 +42,32 @@ export const OrderHeader: React.FC<OrderHeaderProps> = ({
                     <ArrowLeft className="h-5 w-5" />
                 </button>
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
-                        Order #{invoiceCode}
-                        <select
-                            value={status}
-                            onChange={(e) => onStatusChange(e.target.value)}
-                            disabled={isUpdating}
-                            className={`appearance-none rounded-full px-3 py-1 text-sm font-medium border-0 focus:ring-2 focus:ring-primary-500 cursor-pointer ${getStatusColor(Number(status))}`}
-                            style={{ paddingRight: '1.5rem' }}
+                    <div className="flex items-center gap-3">
+                        <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
+                            Order #{invoiceCode}
+                            <select
+                                value={status}
+                                onChange={(e) => onStatusChange(e.target.value)}
+                                disabled={isUpdating}
+                                className={`appearance-none rounded-full px-3 py-1 text-sm font-medium border-0 focus:ring-2 focus:ring-primary-500 cursor-pointer ${getStatusColor(Number(status))}`}
+                                style={{ paddingRight: '1.5rem' }}
+                            >
+                                <option value={0}>Processing</option>
+                                <option value={1}>Completed</option>
+                                <option value={2}>On Hold</option>
+                                <option value={3}>Cancelled</option>
+                                <option value={4}>Refunded</option>
+                            </select>
+                        </h1>
+                        <button
+                            onClick={onPrintInvoice}
+                            className="flex items-center gap-2 px-3 py-1.5 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors text-sm font-medium"
+                            title="Print Invoice"
                         >
-                            <option value={0}>Processing</option>
-                            <option value={1}>Completed</option>
-                            <option value={2}>On Hold</option>
-                            <option value={3}>Cancelled</option>
-                            <option value={4}>Refunded</option>
-                        </select>
-                    </h1>
+                            <Printer className="h-4 w-4" />
+                            Print Invoice
+                        </button>
+                    </div>
                     <p className="text-sm text-gray-500 flex items-center gap-2 mt-1">
                         <Calendar className="h-4 w-4" />
                         {createdAt}

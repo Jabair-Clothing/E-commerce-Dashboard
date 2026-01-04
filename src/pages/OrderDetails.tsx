@@ -12,6 +12,7 @@ import { PaymentInfo } from '../components/OrderDetails/PaymentInfo';
 import { CustomerInfo } from '../components/OrderDetails/CustomerInfo';
 import { ShippingAddress } from '../components/OrderDetails/ShippingAddress';
 import { OrderSummary } from '../components/OrderDetails/OrderSummary';
+import { Invoice } from '../components/OrderDetails/Invoice';
 
 export const OrderDetails: React.FC = () => {
     const { id } = useParams<{ id: string }>();
@@ -192,6 +193,10 @@ export const OrderDetails: React.FC = () => {
         }
     };
 
+    const handlePrintInvoice = () => {
+        window.print();
+    };
+
     const { data: apiResponse, isLoading, isError } = useQuery({
         queryKey: ['order', id],
         queryFn: async () => {
@@ -232,6 +237,7 @@ export const OrderDetails: React.FC = () => {
                 status={order.status}
                 createdAt={order.created_at}
                 onStatusChange={handleStatusChange}
+                onPrintInvoice={handlePrintInvoice}
                 isUpdating={updateStatusMutation.isPending}
             />
 
@@ -281,6 +287,15 @@ export const OrderDetails: React.FC = () => {
                 }}
                 product={selectedProductForVariant}
                 onConfirm={handleVariantConfirm}
+            />
+
+            {/* Invoice for Printing */}
+            <Invoice
+                order={order}
+                user={user}
+                shippingAddress={shipping_address}
+                orderItems={order_items}
+                payments={payments}
             />
         </div>
     );

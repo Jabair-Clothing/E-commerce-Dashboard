@@ -15,8 +15,8 @@ export const VariantSelectionModal: React.FC<VariantSelectionModalProps> = ({ is
 
     // Helper to format attributes string
     const formatAttributes = (attributes: SkuAttribute[]) => {
-        if (!attributes || attributes.length === 0) return 'Standard';
-        return attributes.map(attr => `${attr.attribute.name}: ${attr.attribute_value.name}`).join(', ');
+        if (!attributes || attributes.length === 0) return '';
+        return attributes.map(attr => `${attr.attribute_name}: ${attr.value_name}`).join(', ');
     };
 
     return createPortal(
@@ -37,8 +37,7 @@ export const VariantSelectionModal: React.FC<VariantSelectionModalProps> = ({ is
                     <table className="w-full text-left border-collapse">
                         <thead className="bg-gray-50 sticky top-0 z-10">
                             <tr>
-                                <th className="p-4 text-xs font-semibold text-gray-500 uppercase border-b">SKU</th>
-                                <th className="p-4 text-xs font-semibold text-gray-500 uppercase border-b">Attributes</th>
+                                <th className="p-4 text-xs font-semibold text-gray-500 uppercase border-b">SKU & Variants</th>
                                 <th className="p-4 text-xs font-semibold text-gray-500 uppercase border-b">Price</th>
                                 <th className="p-4 text-xs font-semibold text-gray-500 uppercase border-b">Stock</th>
                                 <th className="p-4 text-xs font-semibold text-gray-500 uppercase border-b text-right">Action</th>
@@ -47,16 +46,18 @@ export const VariantSelectionModal: React.FC<VariantSelectionModalProps> = ({ is
                         <tbody className="divide-y divide-gray-100">
                             {product.skus.length === 0 ? (
                                 <tr>
-                                    <td colSpan={5} className="p-8 text-center text-gray-500">
+                                    <td colSpan={4} className="p-8 text-center text-gray-500">
                                         No variations available.
                                     </td>
                                 </tr>
                             ) : (
                                 product.skus.map((sku) => (
                                     <tr key={sku.id} className="hover:bg-gray-50 transition-colors">
-                                        <td className="p-4 text-sm font-medium text-gray-900">{sku.sku}</td>
-                                        <td className="p-4 text-sm text-gray-600">
-                                            {formatAttributes(sku.sku_attributes)}
+                                        <td className="p-4">
+                                            <div className="text-sm font-bold text-gray-900">{sku.sku}</div>
+                                            <div className="text-xs text-gray-500 mt-1">
+                                                {formatAttributes(sku.attributes)}
+                                            </div>
                                         </td>
                                         <td className="p-4 text-sm font-bold text-primary-600">৳{sku.price}</td>
                                         <td className="p-4 text-sm">
@@ -66,7 +67,7 @@ export const VariantSelectionModal: React.FC<VariantSelectionModalProps> = ({ is
                                         </td>
                                         <td className="p-4 text-right">
                                             <button
-                                                onClick={() => onConfirm(sku.id, formatAttributes(sku.sku_attributes), sku.price)}
+                                                onClick={() => onConfirm(sku.id, formatAttributes(sku.attributes), sku.price)}
                                                 disabled={sku.quantity <= 0}
                                                 className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${sku.quantity > 0
                                                     ? 'bg-primary-600 text-white hover:bg-primary-700 shadow-sm hover:shadow'

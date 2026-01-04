@@ -159,8 +159,8 @@ export const POSRefactored: React.FC = () => {
         // If product has exactly one SKU, add it directly
         if (product.skus && product.skus.length === 1) {
             const sku = product.skus[0];
-            const description = sku.sku_attributes && sku.sku_attributes.length > 0
-                ? sku.sku_attributes.map(a => `${a.attribute.name}: ${a.attribute_value.name}`).join(', ')
+            const description = sku.attributes && sku.attributes.length > 0
+                ? sku.attributes.map(a => `${a.attribute_name}: ${a.value_name}`).join(', ')
                 : 'Standard';
 
             setCart(prev => {

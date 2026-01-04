@@ -1,10 +1,9 @@
 export interface SkuAttribute {
-    id: number;
-    product_sku_id: number;
     attribute_id: number;
-    attribute_value_id: number;
-    attribute: { name: string };
-    attribute_value: { name: string };
+    attribute_name: string;
+    value_id: number;
+    value_name: string;
+    value_code: string;
 }
 
 export interface ProductSku {
@@ -12,7 +11,7 @@ export interface ProductSku {
     sku: string;
     price: string;
     quantity: number;
-    sku_attributes: SkuAttribute[];
+    attributes: SkuAttribute[];
 }
 
 export interface Product {

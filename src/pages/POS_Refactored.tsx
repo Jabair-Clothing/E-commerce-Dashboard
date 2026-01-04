@@ -143,22 +143,22 @@ export const POSRefactored: React.FC = () => {
         }
     });
 
-    const orderInfo: OrderInfo = orderInfoData || { vat: 0, inside_dhaka: 60, outside_dhaka: 120, bkash_charge: 0 };
+    const orderInfo: OrderInfo = orderInfoData || { vat: "0", inside_dhaka: 60, outside_dhaka: 120, bkash_changed: "0" };
 
 
     // --- Actions ---
 
     const addToCart = (product: Product) => {
         // If product has multiple SKUs, show selection modal
-        if (product.product_skus && product.product_skus.length > 1) {
+        if (product.skus && product.skus.length > 1) {
             setSelectedProductForVariant(product);
             setShowVariantModal(true);
             return;
         }
 
         // If product has exactly one SKU, add it directly
-        if (product.product_skus && product.product_skus.length === 1) {
-            const sku = product.product_skus[0];
+        if (product.skus && product.skus.length === 1) {
+            const sku = product.skus[0];
             const description = sku.sku_attributes && sku.sku_attributes.length > 0
                 ? sku.sku_attributes.map(a => `${a.attribute.name}: ${a.attribute_value.name}`).join(', ')
                 : 'Standard';
@@ -282,15 +282,15 @@ export const POSRefactored: React.FC = () => {
     const subtotal = cart.reduce((sum, item) => sum + (parseFloat(item.price) * item.cartQuantity), 0);
 
     let shippingCharge = 0;
-    if (shippingMethod === 'inside') shippingCharge = parseFloat(orderInfo.inside_dhaka as any || 0);
-    else if (shippingMethod === 'outside') shippingCharge = parseFloat(orderInfo.outside_dhaka as any || 0);
+    if (shippingMethod === 'inside') shippingCharge = parseFloat(String(orderInfo.inside_dhaka || 0));
+    else if (shippingMethod === 'outside') shippingCharge = parseFloat(String(orderInfo.outside_dhaka || 0));
 
-    const vatPercentage = parseFloat(orderInfo.vat as any || 0);
+    const vatPercentage = parseFloat(orderInfo.vat || "0");
     const vatAmount = (subtotal * vatPercentage) / 100;
 
     let paymentCharge = 0;
     if (paymentType === 2) { // Bkash
-        const bkashRate = parseFloat(orderInfo.bkash_charge as any || 0);
+        const bkashRate = parseFloat(orderInfo.bkash_changed || "0");
         paymentCharge = ((subtotal + shippingCharge + vatAmount) * bkashRate) / 100;
     }
 

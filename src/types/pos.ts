@@ -23,7 +23,7 @@ export interface Product {
     stock_quantity: number;
     category: { id: number; name: string };
     parent_category: { id: number; name: string } | null;
-    product_skus?: ProductSku[];
+    skus?: ProductSku[];
 }
 
 export interface CartItem extends Product {
@@ -46,8 +46,8 @@ export interface ParentCategory {
 }
 
 export interface OrderInfo {
-    vat: number;
+    vat: string;
     inside_dhaka: number;
     outside_dhaka: number;
-    bkash_charge: number;
+    bkash_changed: string;
 }

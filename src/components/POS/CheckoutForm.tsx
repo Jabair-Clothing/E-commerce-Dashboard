@@ -357,7 +357,7 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = (props) => {
                         onChange={e => setPaymentPhone(e.target.value)}
                     />
                     <p className="col-span-2 text-xs text-pink-600 font-medium">
-                        A charge of {orderInfo.bkash_charge}% will be added.
+                        A charge of {orderInfo.bkash_changed}% will be added.
                     </p>
                 </div>
             )}

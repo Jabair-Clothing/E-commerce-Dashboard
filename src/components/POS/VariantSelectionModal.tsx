@@ -11,7 +11,7 @@ interface VariantSelectionModalProps {
 }
 
 export const VariantSelectionModal: React.FC<VariantSelectionModalProps> = ({ isOpen, onClose, product, onConfirm }) => {
-    if (!isOpen || !product || !product.product_skus) return null;
+    if (!isOpen || !product || !product.skus) return null;
 
     // Helper to format attributes string
     const formatAttributes = (attributes: SkuAttribute[]) => {
@@ -45,14 +45,14 @@ export const VariantSelectionModal: React.FC<VariantSelectionModalProps> = ({ is
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
-                            {product.product_skus.length === 0 ? (
+                            {product.skus.length === 0 ? (
                                 <tr>
                                     <td colSpan={5} className="p-8 text-center text-gray-500">
                                         No variations available.
                                     </td>
                                 </tr>
                             ) : (
-                                product.product_skus.map((sku) => (
+                                product.skus.map((sku) => (
                                     <tr key={sku.id} className="hover:bg-gray-50 transition-colors">
                                         <td className="p-4 text-sm font-medium text-gray-900">{sku.sku}</td>
                                         <td className="p-4 text-sm text-gray-600">
@@ -69,8 +69,8 @@ export const VariantSelectionModal: React.FC<VariantSelectionModalProps> = ({ is
                                                 onClick={() => onConfirm(sku.id, formatAttributes(sku.sku_attributes), sku.price)}
                                                 disabled={sku.quantity <= 0}
                                                 className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${sku.quantity > 0
-                                                        ? 'bg-primary-600 text-white hover:bg-primary-700 shadow-sm hover:shadow'
-                                                        : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                                    ? 'bg-primary-600 text-white hover:bg-primary-700 shadow-sm hover:shadow'
+                                                    : 'bg-gray-100 text-gray-400 cursor-not-allowed'
                                                     }`}
                                             >
                                                 {sku.quantity > 0 ? (

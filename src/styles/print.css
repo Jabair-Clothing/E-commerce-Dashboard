@@ -1,21 +1,35 @@
 /* Print Styles for Invoice */
 @media print {
+
   /* Hide everything except invoice */
   body * {
     visibility: hidden;
   }
 
   .invoice-container,
-  .invoice-container * {
+  .invoice-container *,
+  .pos-invoice-container,
+  .pos-invoice-container * {
     visibility: visible;
   }
 
-  .invoice-container {
+  .invoice-container,
+  .pos-invoice-container {
     position: absolute;
     left: 0;
     top: 0;
     width: 100%;
     max-width: none;
+  }
+
+  /* POS Invoice - Thermal Receipt Size */
+  .pos-invoice-container {
+    width: 80mm;
+    /* Standard thermal receipt width */
+    max-width: 80mm;
+    font-size: 12px;
+    margin: 0;
+    padding: 10mm;
   }
 
   /* Remove margins and padding from body */
@@ -25,7 +39,8 @@
   }
 
   /* Ensure clean page breaks */
-  .invoice-container {
+  .invoice-container,
+  .pos-invoice-container {
     page-break-after: auto;
   }
 

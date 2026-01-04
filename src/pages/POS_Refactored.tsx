@@ -7,6 +7,7 @@ import { ProductFilters } from '../components/POS/ProductFilters';
 import { ProductGrid } from '../components/POS/ProductGrid';
 import { CartList } from '../components/POS/CartList';
 import { CheckoutForm } from '../components/POS/CheckoutForm';
+import { POSInvoice } from '../components/POS/POSInvoice';
 import type { Product, CartItem, ParentCategory, Category, OrderInfo } from '../types/pos';
 
 export const POSRefactored: React.FC = () => {
@@ -43,6 +44,20 @@ export const POSRefactored: React.FC = () => {
 
     // Shipping
     const [shippingMethod, setShippingMethod] = useState<'pickup' | 'inside' | 'outside'>('pickup');
+
+    // Invoice State
+    const [showInvoice, setShowInvoice] = useState(false);
+    const [lastOrderInvoice, setLastOrderInvoice] = useState<string>('');
+    const [lastOrderDate, setLastOrderDate] = useState<string>('');
+    const [invoiceCart, setInvoiceCart] = useState<CartItem[]>([]);
+    const [invoiceCustomerName, setInvoiceCustomerName] = useState('');
+    const [invoiceCustomerPhone, setInvoiceCustomerPhone] = useState('');
+    const [invoiceCustomerAddress, setInvoiceCustomerAddress] = useState('');
+    const [invoiceSubtotal, setInvoiceSubtotal] = useState(0);
+    const [invoiceShipping, setInvoiceShipping] = useState(0);
+    const [invoiceVat, setInvoiceVat] = useState(0);
+    const [invoiceTotal, setInvoiceTotal] = useState(0);
+    const [invoicePaymentType, setInvoicePaymentType] = useState(1);
 
     // --- Queries ---
 
@@ -312,8 +327,21 @@ export const POSRefactored: React.FC = () => {
             if (!response.ok) throw new Error(data.message || 'Failed to place order');
             return data;
         },
-        onSuccess: () => {
-            alert('Order placed successfully!');
+        onSuccess: (data) => {
+            // Save order data for invoice
+            setLastOrderInvoice(data?.data?.invoice_code || 'N/A');
+            setLastOrderDate(new Date().toLocaleString());
+            setInvoiceCart([...cart]);
+            setInvoiceCustomerName(selectedClient?.name || 'Walking Customer');
+            setInvoiceCustomerPhone(selectedClient?.phone || '');
+            setInvoiceCustomerAddress(selectedClient?.address || '');
+            setInvoiceSubtotal(subtotal);
+            setInvoiceShipping(shippingCharge);
+            setInvoiceVat(vatAmount);
+            setInvoiceTotal(total);
+            setInvoicePaymentType(paymentType);
+
+            // Clear cart and form
             setCart([]);
             setCustomerName('');
             setCustomerPhone('');
@@ -324,6 +352,16 @@ export const POSRefactored: React.FC = () => {
             setPaymentType(1);
             setSelectedClient(null);
             setClientSearchTerm('');
+
+            // Show invoice
+            setShowInvoice(true);
+
+            alert('Order placed successfully!');
+
+            // Auto-print after a short delay
+            setTimeout(() => {
+                window.print();
+            }, 500);
         },
         onError: (error: Error) => {
             alert(error.message);
@@ -451,6 +489,23 @@ export const POSRefactored: React.FC = () => {
                     isPlacingOrder={placeOrderMutation.isPending}
                 />
             </div>
+
+            {/* POS Invoice for Printing */}
+            {showInvoice && (
+                <POSInvoice
+                    invoiceCode={lastOrderInvoice}
+                    customerName={invoiceCustomerName}
+                    customerPhone={invoiceCustomerPhone}
+                    customerAddress={invoiceCustomerAddress}
+                    cart={invoiceCart}
+                    subtotal={invoiceSubtotal}
+                    shippingCharge={invoiceShipping}
+                    vatAmount={invoiceVat}
+                    total={invoiceTotal}
+                    paymentType={invoicePaymentType}
+                    createdAt={lastOrderDate}
+                />
+            )}
         </div>
     );
 };

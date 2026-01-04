@@ -9,7 +9,7 @@ interface InvoiceProps {
     payments: PaymentSegment[];
 }
 
-export const Invoice: React.FC<InvoiceProps> = ({ order, user, shippingAddress, orderItems, payments }) => {
+export const Invoice: React.FC<InvoiceProps> = ({ order, user, shippingAddress, orderItems }) => {
     const isGuest = !user;
     const customerName = isGuest ? order.user_name : user?.name;
     const customerPhone = isGuest ? order.user_phone : user?.phone;
@@ -129,25 +129,12 @@ export const Invoice: React.FC<InvoiceProps> = ({ order, user, shippingAddress, 
                 </div>
             </div>
 
-            {/* Payment Info */}
-            {payments.length > 0 && (
-                <div className="border-t border-gray-200 pt-6 mb-6">
-                    <h3 className="text-sm font-bold text-gray-900 mb-3 uppercase">Payment Information</h3>
-                    {payments.map((payment, index) => (
-                        <div key={index} className="text-sm text-gray-600">
-                            <p>Payment Type: {payment.payment_type === "1" ? "Cash" : "Digital"}</p>
-                            <p>Amount Paid: ৳{payment.paid_amount}</p>
-                            <p>Due Amount: ৳{payment.due_amount}</p>
-                        </div>
-                    ))}
-                </div>
-            )}
 
             {/* Footer */}
             <div className="border-t border-gray-200 pt-6 text-center">
                 <p className="text-xs text-gray-600">Thank you for your business!</p>
-                <p className="text-xs text-gray-500 mt-1">
-                    This is a computer-generated invoice. No signature required.
+                <p className="text-xs text-gray-500 mt-2">
+                    This software is made by <span className="font-medium">napver.com</span>
                 </p>
             </div>
         </div>

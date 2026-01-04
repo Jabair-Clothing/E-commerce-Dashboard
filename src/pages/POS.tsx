@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { Search, ShoppingCart, Trash2, Plus, Minus, CreditCard, Banknote, User, Phone, MapPin, X, Monitor } from 'lucide-react';
 import { endpoints } from '../config';
@@ -51,6 +52,14 @@ export const POS: React.FC = () => {
     const [clientSearchTerm, setClientSearchTerm] = useState('');
     const [showClientDropdown, setShowClientDropdown] = useState(false);
     const [selectedClient, setSelectedClient] = useState<any | null>(null);
+
+    const [showWalkingCustomerModal, setShowWalkingCustomerModal] = useState(false);
+
+    // Address Selection State
+    const [shippingAddresses, setShippingAddresses] = useState<any[]>([]);
+    const [showAddressModal, setShowAddressModal] = useState(false);
+    const [selectedShippingAddress, setSelectedShippingAddress] = useState<any | null>(null);
+    const [loadingAddresses, setLoadingAddresses] = useState(false);
 
     // Fetch Clients
     const { data: clientsData } = useQuery({
@@ -236,13 +245,36 @@ export const POS: React.FC = () => {
         }
     });
 
-    const handleSelectClient = (client: any) => {
+    const handleSelectClient = async (client: any) => {
         setSelectedClient(client);
         setCustomerName(client.name);
         setCustomerPhone(client.phone);
-        setCustomerAddress(client.address || '');
+        // Reset address state
+        setCustomerAddress(client.address || ''); // Shows default address
+        setShippingAddresses([]);
+        setSelectedShippingAddress(null);
         setClientSearchTerm('');
         setShowClientDropdown(false);
+
+        // Fetch Shipping Addresses for this client
+        setLoadingAddresses(true);
+        try {
+            const response = await fetch(endpoints.clients.details(client.id), {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const data = await response.json();
+            if (response.ok && data.data && data.data[0] && data.data[0].shipping_addresses) {
+                const addresses = data.data[0].shipping_addresses;
+                setShippingAddresses(addresses);
+                if (addresses.length > 0) {
+                    setShowAddressModal(true);
+                }
+            }
+        } catch (error) {
+            console.error("Failed to fetch client addresses", error);
+        } finally {
+            setLoadingAddresses(false);
+        }
     };
 
     const handleClearClient = () => {
@@ -250,29 +282,35 @@ export const POS: React.FC = () => {
         setCustomerName('');
         setCustomerPhone('');
         setCustomerAddress('');
+        setShippingAddresses([]);
+        setSelectedShippingAddress(null);
     };
 
     const handlePlaceOrder = () => {
         if (cart.length === 0) return alert('Cart is empty');
 
-        if (!selectedClient && (!customerName || !customerPhone)) {
-            return alert('Customer Name and Phone are required');
+        if (!selectedClient) {
+            return alert('Please select a client or Walking Customer');
         }
 
+        const isWalking = selectedClient.id === null;
+
         const payload = {
-            user_id: selectedClient ? selectedClient.id : null,
-            ...(selectedClient ? {} : {
-                user_name: customerName,
-                userphone: customerPhone,
-                address: customerAddress,
-            }),
+            user_id: selectedClient.id, // null for walking
+            // Send details only if Walking Customer
+            ...(isWalking ? {
+                user_name: selectedClient.name,
+                userphone: selectedClient.phone,
+                address: selectedClient.address,
+            } : {}),
             shipping_charge: shippingCharge,
             product_subtotal: subtotal,
             vat: vatAmount,
             total: total,
             payment_type: paymentType,
+
             coupon_id: null,
-            shipping_id: null,
+            shipping_id: selectedShippingAddress?.id || null,
             ...(paymentType === 2 && {
                 trxed: trxId,
                 paymentphone: paymentPhone
@@ -494,21 +532,33 @@ export const POS: React.FC = () => {
                                         </button>
                                     )}
                                 </div>
-                                {showClientDropdown && clientSearchTerm && (
-                                    <div className="absolute top-full left-0 right-0 mt-1 bg-white border rounded-lg shadow-lg max-h-48 overflow-y-auto divide-y">
-                                        {filteredClients.length > 0 ? (
-                                            filteredClients.map((client: any) => (
-                                                <button
-                                                    key={client.id}
-                                                    onClick={() => handleSelectClient(client)}
-                                                    className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 flex flex-col"
-                                                >
-                                                    <span className="font-medium text-gray-900">{client.name}</span>
-                                                    <span className="text-xs text-gray-500">{client.phone}</span>
-                                                </button>
-                                            ))
-                                        ) : (
-                                            <div className="px-3 py-2 text-sm text-gray-500 italic">No clients found</div>
+                                {showClientDropdown && (
+                                    <div className="absolute top-full left-0 right-0 mt-1 bg-white border rounded-lg shadow-lg max-h-48 overflow-y-auto divide-y z-50">
+                                        <button
+                                            onClick={() => {
+                                                setShowWalkingCustomerModal(true);
+                                                setShowClientDropdown(false);
+                                                // Reset temp inputs for modal
+                                                setCustomerName('');
+                                                setCustomerPhone('');
+                                                setCustomerAddress('');
+                                            }}
+                                            className="w-full text-left px-3 py-2 text-sm hover:bg-primary-50 text-primary-700 font-medium flex items-center gap-2"
+                                        >
+                                            <User className="h-4 w-4" /> Walking Customer
+                                        </button>
+                                        {filteredClients.map((client: any) => (
+                                            <button
+                                                key={client.id}
+                                                onClick={() => handleSelectClient(client)}
+                                                className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 flex flex-col"
+                                            >
+                                                <span className="font-medium text-gray-900">{client.name}</span>
+                                                <span className="text-xs text-gray-500">{client.phone}</span>
+                                            </button>
+                                        ))}
+                                        {filteredClients.length === 0 && (
+                                            <div className="px-3 py-2 text-sm text-gray-500 italic">No existing clients found</div>
                                         )}
                                     </div>
                                 )}
@@ -516,51 +566,148 @@ export const POS: React.FC = () => {
                         ) : (
                             <div className="flex items-center justify-between p-2 bg-primary-50 border border-primary-200 rounded-lg">
                                 <div>
-                                    <div className="font-bold text-primary-900 text-sm">{selectedClient.name}</div>
+                                    <div className="font-bold text-primary-900 text-sm">{selectedClient.name} {selectedClient.id === null && '(Walking)'}</div>
                                     <div className="text-xs text-primary-700">{selectedClient.phone}</div>
+                                    {/* Show Selected Address if specific one picked, else show default */}
+                                    {selectedShippingAddress ? (
+                                        <div className="text-xs text-green-700 mt-1 font-medium flex items-start gap-1">
+                                            <MapPin className="h-3 w-3 mt-0.5 flex-shrink-0" />
+                                            <span>
+                                                {selectedShippingAddress.address}, {selectedShippingAddress.city}
+                                            </span>
+                                        </div>
+                                    ) : (
+                                        selectedClient.address && <div className="text-xs text-primary-600 mt-0.5">{selectedClient.address}</div>
+                                    )}
                                 </div>
-                                <button onClick={handleClearClient} className="text-primary-600 hover:text-primary-800 text-xs font-medium">
-                                    Change
-                                </button>
+                                <div className="flex flex-col gap-1 items-end">
+                                    <button onClick={handleClearClient} className="text-primary-600 hover:text-primary-800 text-xs font-medium">
+                                        Change
+                                    </button>
+                                    {shippingAddresses.length > 0 && (
+                                        <button
+                                            onClick={() => setShowAddressModal(true)}
+                                            className="text-xs text-blue-600 hover:text-blue-800 underline"
+                                        >
+                                            {selectedShippingAddress ? 'Change Address' : 'Select Address'}
+                                        </button>
+                                    )}
+                                </div>
                             </div>
                         )}
 
-                        {/* Manual Inputs Grid (Disabled if Client Selected) */}
-                        <div className="grid grid-cols-2 gap-2">
-                            <div className="relative">
-                                <User className="absolute left-2 top-2.5 h-4 w-4 text-gray-400" />
-                                <input
-                                    type="text"
-                                    placeholder="Customer Name"
-                                    className={`w-full pl-8 pr-3 py-2 text-sm border rounded-lg ${selectedClient ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`}
-                                    value={customerName}
-                                    onChange={e => !selectedClient && setCustomerName(e.target.value)}
-                                    disabled={!!selectedClient}
-                                />
-                            </div>
-                            <div className="relative">
-                                <Phone className="absolute left-2 top-2.5 h-4 w-4 text-gray-400" />
-                                <input
-                                    type="text"
-                                    placeholder="Phone"
-                                    className={`w-full pl-8 pr-3 py-2 text-sm border rounded-lg ${selectedClient ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`}
-                                    value={customerPhone}
-                                    onChange={e => !selectedClient && setCustomerPhone(e.target.value)}
-                                    disabled={!!selectedClient}
-                                />
-                            </div>
-                        </div>
-                        <div className="relative">
-                            <MapPin className="absolute left-2 top-2.5 h-4 w-4 text-gray-400" />
-                            <input
-                                type="text"
-                                placeholder="Address"
-                                className={`w-full pl-8 pr-3 py-2 text-sm border rounded-lg ${selectedClient ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`}
-                                value={customerAddress}
-                                onChange={e => !selectedClient && setCustomerAddress(e.target.value)}
-                                disabled={!!selectedClient}
-                            />
-                        </div>
+                        {/* Address Selection Modal */}
+                        {showAddressModal && createPortal(
+                            <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4">
+                                <div className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                                    <div className="bg-primary-600 p-4 flex items-center justify-between">
+                                        <h3 className="text-white font-bold text-lg flex items-center gap-2">
+                                            <MapPin className="h-5 w-5" /> Select Shipping Address
+                                        </h3>
+                                        <button onClick={() => setShowAddressModal(false)} className="text-primary-100 hover:text-white">
+                                            <X className="h-5 w-5" />
+                                        </button>
+                                    </div>
+                                    <div className="p-4 max-h-[60vh] overflow-y-auto space-y-3">
+                                        {shippingAddresses.map((addr: any) => (
+                                            <div
+                                                key={addr.id}
+                                                onClick={() => {
+                                                    setSelectedShippingAddress(addr);
+                                                    setShowAddressModal(false);
+                                                }}
+                                                className={`border rounded-lg p-3 cursor-pointer transition-all hover:shadow-md ${selectedShippingAddress?.id === addr.id ? 'border-primary-500 bg-primary-50 ring-1 ring-primary-500' : 'border-gray-200 hover:border-primary-300'}`}
+                                            >
+                                                <div className="font-medium text-sm text-gray-900">{addr.f_name} {addr.l_name}</div>
+                                                <div className="text-xs text-gray-600">{addr.phone}</div>
+                                                <div className="text-xs text-gray-800 mt-1">{addr.address}, {addr.city} - {addr.zip}</div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                    <div className="p-4 border-t bg-gray-50 flex justify-end">
+                                        <button
+                                            onClick={() => setShowAddressModal(false)}
+                                            className="text-gray-600 text-sm hover:underline"
+                                        >
+                                            Skip & Use Default
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>,
+                            document.body
+                        )}
+
+                        {/* Walking Customer Modal */}
+                        {showWalkingCustomerModal && createPortal(
+                            <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4">
+                                <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                                    <div className="bg-primary-600 p-4 flex items-center justify-between">
+                                        <h3 className="text-white font-bold text-lg flex items-center gap-2">
+                                            <User className="h-5 w-5" /> Walking Customer
+                                        </h3>
+                                        <button onClick={() => setShowWalkingCustomerModal(false)} className="text-primary-100 hover:text-white">
+                                            <X className="h-5 w-5" />
+                                        </button>
+                                    </div>
+                                    <div className="p-4 space-y-3">
+                                        <div>
+                                            <label className="text-xs font-semibold text-gray-500 uppercase mb-1 block">Name</label>
+                                            <input
+                                                type="text"
+                                                className="w-full px-3 py-2 border rounded-lg focus:ring-primary-500 focus:border-primary-500"
+                                                placeholder="Enter Name"
+                                                value={customerName}
+                                                onChange={e => setCustomerName(e.target.value)}
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="text-xs font-semibold text-gray-500 uppercase mb-1 block">Phone</label>
+                                            <input
+                                                type="text"
+                                                className="w-full px-3 py-2 border rounded-lg focus:ring-primary-500 focus:border-primary-500"
+                                                placeholder="Enter Phone"
+                                                value={customerPhone}
+                                                onChange={e => setCustomerPhone(e.target.value)}
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="text-xs font-semibold text-gray-500 uppercase mb-1 block">Address</label>
+                                            <textarea
+                                                className="w-full px-3 py-2 border rounded-lg focus:ring-primary-500 focus:border-primary-500"
+                                                placeholder="Enter Address"
+                                                rows={2}
+                                                value={customerAddress}
+                                                onChange={e => setCustomerAddress(e.target.value)}
+                                            />
+                                        </div>
+                                        <div className="pt-2 flex gap-2">
+                                            <button
+                                                onClick={() => setShowWalkingCustomerModal(false)}
+                                                className="flex-1 py-2 text-gray-600 font-medium hover:bg-gray-100 rounded-lg"
+                                            >
+                                                Cancel
+                                            </button>
+                                            <button
+                                                onClick={() => {
+                                                    if (!customerName || !customerPhone) return alert("Name and Phone are required");
+                                                    setSelectedClient({
+                                                        id: null,
+                                                        name: customerName,
+                                                        phone: customerPhone,
+                                                        address: customerAddress
+                                                    });
+                                                    setShowWalkingCustomerModal(false);
+                                                }}
+                                                className="flex-1 py-2 bg-primary-600 text-white font-bold rounded-lg hover:bg-primary-700 shadow-md"
+                                            >
+                                                Confirm
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>,
+                            document.body
+                        )}
                     </div>
 
                     {/* Shipping Method */}

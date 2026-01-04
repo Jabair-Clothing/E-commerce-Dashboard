@@ -19,6 +19,7 @@ const Profile = React.lazy(() => import('./pages/Profile').then(module => ({ def
 const Ratings = React.lazy(() => import('./pages/Ratings').then(module => ({ default: module.Ratings })));
 const Settings = React.lazy(() => import('./pages/Settings').then(module => ({ default: module.Settings })));
 const Orders = React.lazy(() => import('./pages/Orders').then(module => ({ default: module.Orders })));
+const OrderDetails = React.lazy(() => import('./pages/OrderDetails').then(module => ({ default: module.OrderDetails })));
 const POS = React.lazy(() => import('./pages/POS_Refactored').then(module => ({ default: module.POSRefactored })));
 const Clients = React.lazy(() => import('./pages/Clients').then(module => ({ default: module.Clients })));
 const ClientDetails = React.lazy(() => import('./pages/ClientDetails').then(module => ({ default: module.ClientDetails })));
@@ -62,6 +63,7 @@ function App() {
               }>
                 <Route index element={<Dashboard />} />
                 <Route path="orders" element={<Orders />} />
+                <Route path="orders/:id" element={<OrderDetails />} />
                 <Route path="products" element={<Products />} />
                 <Route path="products/new" element={<AddProduct />} />
                 <Route path="products/:id" element={

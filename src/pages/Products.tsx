@@ -46,7 +46,7 @@ export const Products: React.FC = () => {
     const [page, setPage] = useState(1);
 
     // Fetch Products
-    const { data: apiResponse, isLoading, isError } = useQuery({
+    const { data: apiResponse, isPending: isLoading } = useQuery({
         queryKey: ['products', page, searchTerm],
         queryFn: async () => {
             const url = new URL(endpoints.products.all);

@@ -46,7 +46,7 @@ export const endpoints = {
     },
     orders: {
         all: `${API_BASE_URL}/orders`,
-        place: `${API_BASE_URL}/place-order`,
+        place: `${API_BASE_URL}/orders/place-order`,
     },
     clients: {
         all: `${API_BASE_URL}/clints`,

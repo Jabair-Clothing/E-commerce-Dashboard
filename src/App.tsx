@@ -4,6 +4,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { AuthProvider } from './context/AuthContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { DashboardLayout } from './layouts/DashboardLayout';
+import { ErrorBoundary } from './components/ErrorBoundary';
 
 // Lazy load pages
 const Login = React.lazy(() => import('./pages/Login').then(module => ({ default: module.Login })));
@@ -18,7 +19,7 @@ const Profile = React.lazy(() => import('./pages/Profile').then(module => ({ def
 const Ratings = React.lazy(() => import('./pages/Ratings').then(module => ({ default: module.Ratings })));
 const Settings = React.lazy(() => import('./pages/Settings').then(module => ({ default: module.Settings })));
 const Orders = React.lazy(() => import('./pages/Orders').then(module => ({ default: module.Orders })));
-const POS = React.lazy(() => import('./pages/POS').then(module => ({ default: module.POS })));
+const POS = React.lazy(() => import('./pages/POS_Refactored').then(module => ({ default: module.POSRefactored })));
 const Clients = React.lazy(() => import('./pages/Clients').then(module => ({ default: module.Clients })));
 const ClientDetails = React.lazy(() => import('./pages/ClientDetails').then(module => ({ default: module.ClientDetails })));
 
@@ -63,7 +64,11 @@ function App() {
                 <Route path="orders" element={<Orders />} />
                 <Route path="products" element={<Products />} />
                 <Route path="products/new" element={<AddProduct />} />
-                <Route path="products/:id" element={<ProductDetails />} />
+                <Route path="products/:id" element={
+                  <ErrorBoundary>
+                    <ProductDetails />
+                  </ErrorBoundary>
+                } />
                 <Route path="categories" element={<Categories />} />
                 <Route path="attributes" element={<Attributes />} />
                 <Route path="coupons" element={<Coupons />} />

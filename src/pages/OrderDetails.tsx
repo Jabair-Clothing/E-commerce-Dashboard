@@ -1,15 +1,115 @@
 import React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
-import { ArrowLeft, MapPin, User, Calendar, CreditCard, Package } from 'lucide-react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { ArrowLeft, MapPin, User, Calendar, CreditCard, Package, Plus, Search, X } from 'lucide-react';
 import { endpoints } from '../config';
 import { useAuth } from '../context/AuthContext';
 import type { OrderDetailsResponse } from '../types/order';
+import { VariantSelectionModal } from '../components/POS/VariantSelectionModal';
+import type { Product } from '../types/pos';
 
 export const OrderDetails: React.FC = () => {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
     const { token } = useAuth();
+    const queryClient = useQueryClient();
+
+    // Add Product State
+    const [showAddProduct, setShowAddProduct] = React.useState(false);
+    const [searchTerm, setSearchTerm] = React.useState('');
+    const [searchResults, setSearchResults] = React.useState<Product[]>([]);
+    const [showVariantModal, setShowVariantModal] = React.useState(false);
+    const [selectedProductForVariant, setSelectedProductForVariant] = React.useState<Product | null>(null);
+
+    // Fetch Products for Search
+    React.useEffect(() => {
+        const fetchProducts = async () => {
+            if (!searchTerm || searchTerm.length < 2) {
+                setSearchResults([]);
+                return;
+            }
+            try {
+                const url = new URL(endpoints.products.all);
+                url.searchParams.append('search', searchTerm);
+                url.searchParams.append('limit', '10');
+                const response = await fetch(url.toString(), {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await response.json();
+                if (data?.data?.data) {
+                    setSearchResults(data.data.data);
+                }
+            } catch (error) {
+                console.error('Error searching products:', error);
+            }
+        };
+
+        const timeoutId = setTimeout(fetchProducts, 300);
+        return () => clearTimeout(timeoutId);
+    }, [searchTerm, token]);
+
+    const addProductMutation = useMutation({
+        mutationFn: async (payload: { product_id: number; quantity: number; product_sku_id: number | null; price: string }) => {
+            const response = await fetch(endpoints.orders.addProduct(id!), {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify(payload)
+            });
+            if (!response.ok) throw new Error('Failed to add product');
+            return response.json();
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['order', id] });
+            setShowAddProduct(false);
+            setSearchTerm('');
+            setSearchResults([]);
+            alert('Product added successfully');
+        },
+        onError: (error) => {
+            alert('Failed to add product: ' + error.message);
+        }
+    });
+
+    const handleProductSelect = (product: Product) => {
+        if (product.skus && product.skus.length > 1) {
+            setSelectedProductForVariant(product);
+            setShowVariantModal(true);
+        } else if (product.skus && product.skus.length === 1) {
+            const sku = product.skus[0];
+            addProductMutation.mutate({
+                product_id: product.id,
+                quantity: 1,
+                product_sku_id: sku.id,
+                price: sku.price
+            });
+        } else {
+            // Fallback for simple products (if any) or handle error
+            // Assuming structure matches POS where product_sku_id might be null for simple products, 
+            // but user request implies sku usage. sending null as per POS fallback logic but adhering to payload structure requested.
+            // If simple product logic is needed:
+            addProductMutation.mutate({
+                product_id: product.id,
+                quantity: 1,
+                product_sku_id: null,
+                price: product.price // Assuming product has price field
+            });
+        }
+    };
+
+    const handleVariantConfirm = (skuId: number, _desc: string, price: string) => {
+        if (!selectedProductForVariant) return;
+        addProductMutation.mutate({
+            product_id: selectedProductForVariant.id,
+            quantity: 1,
+            product_sku_id: skuId,
+            price: price
+        });
+        setShowVariantModal(false);
+        setSelectedProductForVariant(null);
+    };
 
     const { data: apiResponse, isLoading, isError } = useQuery({
         queryKey: ['order', id],
@@ -103,12 +203,70 @@ export const OrderDetails: React.FC = () => {
                 <div className="lg:col-span-2 space-y-6">
                     {/* Order Items */}
                     <div className="bg-white rounded-xl shadow-sm ring-1 ring-gray-200 overflow-hidden">
-                        <div className="p-6 border-b border-gray-200">
+                        <div className="p-6 border-b border-gray-200 flex justify-between items-center">
                             <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
                                 <Package className="h-5 w-5 text-gray-400" />
                                 Order Items
                             </h2>
+                            {!showAddProduct ? (
+                                <button
+                                    onClick={() => setShowAddProduct(true)}
+                                    className="text-sm font-medium text-primary-600 hover:text-primary-700 flex items-center gap-1"
+                                >
+                                    <Plus className="h-4 w-4" /> Add Item
+                                </button>
+                            ) : (
+                                <button
+                                    onClick={() => {
+                                        setShowAddProduct(false);
+                                        setSearchTerm('');
+                                    }}
+                                    className="text-sm font-medium text-red-600 hover:text-red-700 flex items-center gap-1"
+                                >
+                                    <X className="h-4 w-4" /> Cancel
+                                </button>
+                            )}
                         </div>
+                        {showAddProduct && (
+                            <div className="p-4 bg-gray-50 border-b border-gray-100 relative">
+                                <div className="relative">
+                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                                    <input
+                                        type="text"
+                                        placeholder="Search products to add..."
+                                        value={searchTerm}
+                                        onChange={(e) => setSearchTerm(e.target.value)}
+                                        className="w-full pl-9 pr-4 py-2 rounded-lg border-gray-300 text-sm focus:ring-primary-500 focus:border-primary-500"
+                                        autoFocus
+                                    />
+                                </div>
+                                {searchTerm.length >= 2 && searchResults.length > 0 && (
+                                    <div className="absolute left-4 right-4 top-full mt-1 bg-white rounded-lg shadow-lg border border-gray-200 max-h-60 overflow-y-auto z-10">
+                                        {searchResults.map((product) => (
+                                            <button
+                                                key={product.id}
+                                                onClick={() => handleProductSelect(product)}
+                                                className="w-full px-4 py-3 text-left hover:bg-gray-50 flex items-center gap-3 transition-colors border-b border-gray-100 last:border-0"
+                                            >
+                                                <div className="h-8 w-8 rounded bg-gray-100 flex-shrink-0 overflow-hidden">
+                                                    {product.primary_image ? (
+                                                        <img src={product.primary_image} alt={product.name} className="h-full w-full object-cover" />
+                                                    ) : (
+                                                        <div className="h-full w-full bg-gray-200" />
+                                                    )}
+                                                </div>
+                                                <div>
+                                                    <div className="text-sm font-medium text-gray-900">{product.name}</div>
+                                                    <div className="text-xs text-gray-500">
+                                                        {product.skus?.length ? `${product.skus.length} Variants` : `৳${product.price}`}
+                                                    </div>
+                                                </div>
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        )}
                         <div className="divide-y divide-gray-200">
                             {order_items.map((item) => (
                                 <div key={item.product_id} className="p-6 flex gap-4">
@@ -264,6 +422,16 @@ export const OrderDetails: React.FC = () => {
                     </div>
                 </div>
             </div>
+            {/* Variant Modal */}
+            <VariantSelectionModal
+                isOpen={showVariantModal}
+                onClose={() => {
+                    setShowVariantModal(false);
+                    setSelectedProductForVariant(null);
+                }}
+                product={selectedProductForVariant}
+                onConfirm={handleVariantConfirm}
+            />
         </div>
     );
 };

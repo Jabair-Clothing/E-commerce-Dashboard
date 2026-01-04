@@ -38,6 +38,9 @@ export const endpoints = {
         all: `${API_BASE_URL}/ratings`,
         create: `${API_BASE_URL}/ratings`,
         toggleStatus: (id: number | string) => `${API_BASE_URL}/ratings/toggle-status/${id}`,
+        addSku: (id: string | number) => `${API_BASE_URL}/products/${id}/skus`,
+        deleteSku: (id: string | number) => `${API_BASE_URL}/product-skus/${id}`,
+        deleteImage: (id: number | string) => `${API_BASE_URL}/product-images/${id}`,
         delete: (id: number | string) => `${API_BASE_URL}/ratings/${id}`,
     },
     orderInfo: {
@@ -50,6 +53,7 @@ export const endpoints = {
         updateStatus: (id: number | string) => `${API_BASE_URL}/orders/update-status/${id}`,
         delete: (id: number | string) => `${API_BASE_URL}/orders/${id}`,
         getById: (id: number | string) => `${API_BASE_URL}/orders/${id}`,
+        addProduct: (id: number | string) => `${API_BASE_URL}/orders/add-product/${id}`,
     },
     clients: {
         all: `${API_BASE_URL}/clints`,

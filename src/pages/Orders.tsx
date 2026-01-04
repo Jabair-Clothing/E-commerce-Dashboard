@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { useQuery, keepPreviousData } from '@tanstack/react-query';
-import { Search, Eye, Filter } from 'lucide-react';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
+import { Search, Eye, Filter, Trash2 } from 'lucide-react';
 import { endpoints } from '../config';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -11,7 +11,7 @@ interface Order {
     user_email: string | null;
     order_id: number;
     invoice_code: string;
-    status: string;
+    status: number;
     total_amount: number;
     paid_amount: number;
     due_amount: number;
@@ -77,19 +77,78 @@ export const Orders: React.FC = () => {
     const statusSummary = apiResponse?.status_summary;
     const pagination = apiResponse?.pagination;
 
+    const queryClient = useQueryClient();
+
     const handlePageChange = (newPage: number) => {
         if (pagination && newPage >= 1 && newPage <= pagination.last_page) {
             setPage(newPage);
         }
     };
 
-    const getStatusColor = (status: string) => {
-        switch (status.toLowerCase()) {
-            case 'completed': return 'bg-green-100 text-green-800';
-            case 'processing': return 'bg-blue-100 text-blue-800';
-            case 'cancelled': return 'bg-red-100 text-red-800';
-            case 'on_hold': return 'bg-yellow-100 text-yellow-800';
-            case 'refunded': return 'bg-gray-100 text-gray-800';
+
+
+
+    const updateStatusMutation = useMutation({
+        mutationFn: async ({ id, status }: { id: number, status: number }) => {
+            const response = await fetch(endpoints.orders.updateStatus(id), {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ status })
+            });
+            if (!response.ok) throw new Error('Failed to update status');
+            return response.json();
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['orders'] });
+        },
+        onError: (error) => {
+            alert('Failed to update status: ' + error.message);
+        }
+    });
+
+    const deleteOrderMutation = useMutation({
+        mutationFn: async (id: number) => {
+            const response = await fetch(endpoints.orders.delete(id), {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+            if (!response.ok) throw new Error('Failed to delete order');
+            return response.json();
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['orders'] });
+        },
+        onError: (error) => {
+            alert('Failed to delete order: ' + error.message);
+        }
+    });
+
+    const handleDeleteOrder = (orderId: number) => {
+        if (window.confirm('Are you sure you want to delete this order? This action cannot be undone.')) {
+            deleteOrderMutation.mutate(orderId);
+        }
+    };
+
+    const handleStatusChange = (orderId: number, newStatus: string) => {
+        const statusCode = parseInt(newStatus);
+        if (!isNaN(statusCode)) {
+            updateStatusMutation.mutate({ id: orderId, status: statusCode });
+        }
+    };
+
+    const getStatusColor = (status: number) => {
+        switch (status) {
+            case 1: return 'bg-green-100 text-green-800'; // Completed
+            case 0: return 'bg-blue-100 text-blue-800';   // Processing
+            case 3: return 'bg-red-100 text-red-800';     // Cancelled
+            case 2: return 'bg-yellow-100 text-yellow-800'; // On Hold
+            case 4: return 'bg-gray-100 text-gray-800';   // Refunded
             default: return 'bg-gray-100 text-gray-800';
         }
     };
@@ -231,9 +290,22 @@ export const Orders: React.FC = () => {
                                             <div className="text-xs text-gray-500">{order.user_phone}</div>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
-                                            <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${getStatusColor(order.status)}`}>
-                                                {order.status}
-                                            </span>
+                                            <div className="relative">
+                                                <select
+                                                    value={order.status}
+                                                    onChange={(e) => handleStatusChange(order.order_id, e.target.value)}
+                                                    disabled={updateStatusMutation.isPending}
+                                                    className={`appearance-none rounded-full px-3 py-1 text-xs font-medium border-0 focus:ring-2 focus:ring-primary-500 cursor-pointer ${getStatusColor(order.status)}`}
+                                                    style={{ paddingRight: '1.5rem' }}
+                                                >
+                                                    <option value={0}>Processing</option>
+                                                    <option value={1}>Completed</option>
+                                                    <option value={2}>On Hold</option>
+                                                    <option value={3}>Cancelled</option>
+                                                    <option value={4}>Refunded</option>
+                                                </select>
+                                                {/* Down Arrow Icon Overlay if needed, or browser default */}
+                                            </div>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <div className="text-sm text-gray-900">৳{order.total_amount}</div>
@@ -256,6 +328,13 @@ export const Orders: React.FC = () => {
                                                 title="View Details"
                                             >
                                                 <Eye className="h-4 w-4" />
+                                            </button>
+                                            <button
+                                                onClick={() => handleDeleteOrder(order.order_id)}
+                                                className="text-gray-400 hover:text-red-600 transition-colors ml-2"
+                                                title="Delete Order"
+                                            >
+                                                <Trash2 className="h-4 w-4" />
                                             </button>
                                         </td>
                                     </tr>

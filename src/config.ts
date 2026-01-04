@@ -47,6 +47,8 @@ export const endpoints = {
     orders: {
         all: `${API_BASE_URL}/orders`,
         place: `${API_BASE_URL}/orders/place-order`,
+        updateStatus: (id: number | string) => `${API_BASE_URL}/orders/update-status/${id}`,
+        delete: (id: number | string) => `${API_BASE_URL}/orders/${id}`,
     },
     clients: {
         all: `${API_BASE_URL}/clints`,

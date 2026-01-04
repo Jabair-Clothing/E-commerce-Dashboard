@@ -54,6 +54,8 @@ export const endpoints = {
         delete: (id: number | string) => `${API_BASE_URL}/orders/${id}`,
         getById: (id: number | string) => `${API_BASE_URL}/orders/${id}`,
         addProduct: (id: number | string) => `${API_BASE_URL}/orders/add-product/${id}`,
+        removeProduct: (orderId: number | string, productId: number | string) => `${API_BASE_URL}/orders/products/${orderId}/remove/${productId}`,
+        updateQuantity: (orderId: number | string, productId: number | string) => `${API_BASE_URL}/orders/products/${orderId}/update-quantity/${productId}`,
     },
     clients: {
         all: `${API_BASE_URL}/clints`,

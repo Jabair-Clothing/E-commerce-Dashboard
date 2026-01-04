@@ -1,7 +1,7 @@
 import React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, MapPin, User, Calendar, CreditCard, Package, Plus, Search, X } from 'lucide-react';
+import { ArrowLeft, MapPin, User, Calendar, CreditCard, Package, Plus, Search, X, Trash2, Minus } from 'lucide-react';
 import { endpoints } from '../config';
 import { useAuth } from '../context/AuthContext';
 import type { OrderDetailsResponse } from '../types/order';
@@ -109,6 +109,59 @@ export const OrderDetails: React.FC = () => {
         });
         setShowVariantModal(false);
         setSelectedProductForVariant(null);
+    };
+
+    const removeProductMutation = useMutation({
+        mutationFn: async (productId: number) => {
+            const response = await fetch(endpoints.orders.removeProduct(id!, productId), {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+            if (!response.ok) throw new Error('Failed to remove product');
+            return response.json();
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['order', id] });
+            alert('Product removed successfully');
+        },
+        onError: (error) => {
+            alert('Failed to remove product: ' + error.message);
+        }
+    });
+
+    const handleRemoveProduct = (productId: number) => {
+        if (window.confirm('Are you sure you want to remove this item from the order?')) {
+            removeProductMutation.mutate(productId);
+        }
+    };
+
+    const updateQuantityMutation = useMutation({
+        mutationFn: async ({ productId, quantity }: { productId: number; quantity: number }) => {
+            const response = await fetch(endpoints.orders.updateQuantity(id!, productId), {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ quantity })
+            });
+            if (!response.ok) throw new Error('Failed to update quantity');
+            return response.json();
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['order', id] });
+        },
+        onError: (error) => {
+            alert('Failed to update quantity: ' + error.message);
+        }
+    });
+
+    const handleUpdateQuantity = (productId: number, newQuantity: number) => {
+        if (newQuantity < 1) return;
+        updateQuantityMutation.mutate({ productId, quantity: newQuantity });
     };
 
     const { data: apiResponse, isLoading, isError } = useQuery({
@@ -298,10 +351,47 @@ export const OrderDetails: React.FC = () => {
                                             </p>
                                         </div>
                                         <div className="flex items-center justify-between text-sm">
-                                            <p className="text-gray-500">Qty: {item.quantity}</p>
-                                            <p className="font-medium text-gray-900">
-                                                Toal: ৳{parseFloat(item.price) * parseInt(item.quantity)}
-                                            </p>
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-gray-500">Qty:</span>
+                                                <div className="flex items-center gap-1 border border-gray-300 rounded-lg">
+                                                    <button
+                                                        onClick={() => handleUpdateQuantity(item.product_id, parseInt(item.quantity) - 1)}
+                                                        disabled={parseInt(item.quantity) <= 1 || updateQuantityMutation.isPending}
+                                                        className="p-1 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                                    >
+                                                        <Minus className="h-3 w-3 text-gray-600" />
+                                                    </button>
+                                                    <input
+                                                        type="number"
+                                                        min="1"
+                                                        value={item.quantity}
+                                                        onChange={(e) => {
+                                                            const val = parseInt(e.target.value);
+                                                            if (val > 0) handleUpdateQuantity(item.product_id, val);
+                                                        }}
+                                                        className="w-12 text-center border-0 focus:ring-0 text-sm py-0.5"
+                                                    />
+                                                    <button
+                                                        onClick={() => handleUpdateQuantity(item.product_id, parseInt(item.quantity) + 1)}
+                                                        disabled={updateQuantityMutation.isPending}
+                                                        className="p-1 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                                    >
+                                                        <Plus className="h-3 w-3 text-gray-600" />
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center gap-3">
+                                                <p className="font-medium text-gray-900">
+                                                    Total: ৳{parseFloat(item.price) * parseInt(item.quantity)}
+                                                </p>
+                                                <button
+                                                    onClick={() => handleRemoveProduct(item.product_id)}
+                                                    className="text-gray-400 hover:text-red-600 transition-colors"
+                                                    title="Remove from order"
+                                                >
+                                                    <Trash2 className="h-4 w-4" />
+                                                </button>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>

@@ -164,6 +164,34 @@ export const OrderDetails: React.FC = () => {
         updateQuantityMutation.mutate({ productId, quantity: newQuantity });
     };
 
+    const updateStatusMutation = useMutation({
+        mutationFn: async (status: number) => {
+            const response = await fetch(endpoints.orders.updateStatus(id!), {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ status })
+            });
+            if (!response.ok) throw new Error('Failed to update status');
+            return response.json();
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['order', id] });
+        },
+        onError: (error) => {
+            alert('Failed to update status: ' + error.message);
+        }
+    });
+
+    const handleStatusChange = (newStatus: string) => {
+        const statusCode = parseInt(newStatus);
+        if (!isNaN(statusCode)) {
+            updateStatusMutation.mutate(statusCode);
+        }
+    };
+
     const { data: apiResponse, isLoading, isError } = useQuery({
         queryKey: ['order', id],
         queryFn: async () => {
@@ -214,17 +242,6 @@ export const OrderDetails: React.FC = () => {
         }
     };
 
-    const getStatusText = (status: number) => {
-        switch (Number(status)) {
-            case 1: return 'Completed';
-            case 0: return 'Processing';
-            case 3: return 'Cancelled';
-            case 2: return 'On Hold';
-            case 4: return 'Refunded';
-            default: return 'Unknown';
-        }
-    };
-
     return (
         <div className="space-y-6">
             {/* Header */}
@@ -239,9 +256,19 @@ export const OrderDetails: React.FC = () => {
                     <div>
                         <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
                             Order #{order.invoice_code}
-                            <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(Number(order.status))}`}>
-                                {getStatusText(Number(order.status))}
-                            </span>
+                            <select
+                                value={order.status}
+                                onChange={(e) => handleStatusChange(e.target.value)}
+                                disabled={updateStatusMutation.isPending}
+                                className={`appearance-none rounded-full px-3 py-1 text-sm font-medium border-0 focus:ring-2 focus:ring-primary-500 cursor-pointer ${getStatusColor(Number(order.status))}`}
+                                style={{ paddingRight: '1.5rem' }}
+                            >
+                                <option value={0}>Processing</option>
+                                <option value={1}>Completed</option>
+                                <option value={2}>On Hold</option>
+                                <option value={3}>Cancelled</option>
+                                <option value={4}>Refunded</option>
+                            </select>
                         </h1>
                         <p className="text-sm text-gray-500 flex items-center gap-2 mt-1">
                             <Calendar className="h-4 w-4" />

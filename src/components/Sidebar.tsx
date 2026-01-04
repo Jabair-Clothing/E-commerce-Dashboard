@@ -1,10 +1,11 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, ShoppingBag, Layers, LogOut, Package, Settings2, Ticket, Star, Settings } from 'lucide-react';
+import { LayoutDashboard, ShoppingBag, Layers, LogOut, Package, Settings2, Ticket, Star, Settings, ClipboardList } from 'lucide-react';
 import { cn } from '../utils/cn';
 
 const sidebarItems = [
     { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
+    { icon: ClipboardList, label: 'Orders', path: '/orders' },
     { icon: ShoppingBag, label: 'Products', path: '/products' },
     { icon: Layers, label: 'Categories', path: '/categories' },
     { icon: Settings2, label: 'Attributes', path: '/attributes' },

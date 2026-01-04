@@ -43,5 +43,8 @@ export const endpoints = {
     orderInfo: {
         get: `${API_BASE_URL}/orderinfo`,
         update: `${API_BASE_URL}/orderinfo`,
+    },
+    orders: {
+        all: `${API_BASE_URL}/orders`,
     }
 };

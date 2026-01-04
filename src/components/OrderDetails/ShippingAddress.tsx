@@ -4,9 +4,11 @@ import type { ShippingAddressSegment } from '../../types/order';
 
 interface ShippingAddressProps {
     shippingAddress: ShippingAddressSegment | null;
+    // Guest address from order object
+    guestAddress?: string | null;
 }
 
-export const ShippingAddress: React.FC<ShippingAddressProps> = ({ shippingAddress }) => {
+export const ShippingAddress: React.FC<ShippingAddressProps> = ({ shippingAddress, guestAddress }) => {
     return (
         <div className="bg-white rounded-xl shadow-sm ring-1 ring-gray-200 overflow-hidden">
             <div className="p-6 border-b border-gray-200">
@@ -24,6 +26,10 @@ export const ShippingAddress: React.FC<ShippingAddressProps> = ({ shippingAddres
                         {shippingAddress.phone}<br />
                         {shippingAddress.address}<br />
                         {shippingAddress.city}, {shippingAddress.zip}
+                    </address>
+                ) : guestAddress ? (
+                    <address className="text-sm text-gray-600 not-italic leading-relaxed">
+                        {guestAddress}
                     </address>
                 ) : (
                     <p className="text-sm text-gray-500 italic">No shipping address provided.</p>

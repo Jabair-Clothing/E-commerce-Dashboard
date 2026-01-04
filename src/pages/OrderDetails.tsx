@@ -259,8 +259,15 @@ export const OrderDetails: React.FC = () => {
 
                 {/* Right Column - Customer & Summary */}
                 <div className="space-y-6">
-                    <CustomerInfo user={user} />
-                    <ShippingAddress shippingAddress={shipping_address} />
+                    <CustomerInfo
+                        user={user}
+                        guestName={order.user_name}
+                        guestPhone={order.user_phone}
+                    />
+                    <ShippingAddress
+                        shippingAddress={shipping_address}
+                        guestAddress={order.address}
+                    />
                     <OrderSummary order={order} />
                 </div>
             </div>

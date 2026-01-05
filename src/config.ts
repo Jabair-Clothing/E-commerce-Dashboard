@@ -3,6 +3,10 @@ export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0
 export const endpoints = {
     login: `${API_BASE_URL}/login`,
     profile: `${API_BASE_URL}/profile`,
+    users: {
+        register: `${API_BASE_URL}/users/register`,
+        delete: (id: number | string) => `${API_BASE_URL}/users/${id}`,
+    },
     categories: {
         all: `${API_BASE_URL}/categories`,
         parents: `${API_BASE_URL}/categories/parents`,

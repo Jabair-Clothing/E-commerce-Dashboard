@@ -141,10 +141,8 @@ export const Products: React.FC = () => {
 
             <div className="rounded-xl bg-white shadow-sm ring-1 ring-gray-200 overflow-hidden">
                 <div className="border-b border-gray-200 p-4">
-                    <div className="relative max-w-sm">
-                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                            <Search className="h-4 w-4 text-gray-400" />
-                        </div>
+                    <div className="relative">
+                        <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400 pointer-events-none" />
                         <input
                             type="text"
                             placeholder="Search products..."
@@ -153,7 +151,7 @@ export const Products: React.FC = () => {
                                 setSearchTerm(e.target.value);
                                 setPage(1); // Reset to page 1 on search
                             }}
-                            className="block w-full rounded-lg border-gray-300 pl-10 focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                            className="block w-full rounded-lg border-gray-300 pl-10 py-2 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 sm:w-80 sm:text-sm transition-all shadow-sm hover:border-gray-400"
                         />
                     </div>
                 </div>

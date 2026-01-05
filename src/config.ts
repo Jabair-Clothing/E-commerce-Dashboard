@@ -80,5 +80,9 @@ export const endpoints = {
     payments: {
         updateStatus: (id: number | string) => `${API_BASE_URL}/payments/update-status/${id}`,
         updatePaidAmount: (id: number | string) => `${API_BASE_URL}/payments/update-paid-amount/${id}`,
+    },
+    contacts: {
+        all: `${API_BASE_URL}/contact`,
+        delete: (id: number | string) => `${API_BASE_URL}/contact/${id}`,
     }
 };

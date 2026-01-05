@@ -25,6 +25,7 @@ const Clients = React.lazy(() => import('./pages/Clients').then(module => ({ def
 const ClientDetails = React.lazy(() => import('./pages/ClientDetails').then(module => ({ default: module.ClientDetails })));
 const Transitions = React.lazy(() => import('./pages/Transitions').then(module => ({ default: module.Transitions })));
 const Activities = React.lazy(() => import('./pages/Activities').then(module => ({ default: module.Activities })));
+const Contacts = React.lazy(() => import('./pages/Contacts').then(module => ({ default: module.Contacts })));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -81,6 +82,7 @@ function App() {
                 <Route path="clients/:id" element={<ClientDetails />} />
                 <Route path="transitions" element={<Transitions />} />
                 <Route path="activities" element={<Activities />} />
+                <Route path="contacts" element={<Contacts />} />
                 <Route path="profile" element={<Profile />} />
                 <Route path="settings" element={<Settings />} />
               </Route>

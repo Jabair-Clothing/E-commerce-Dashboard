@@ -429,7 +429,7 @@ export const POSRefactored: React.FC = () => {
             </div>
 
             {/* Right Side */}
-            <div className="w-full lg:w-96 bg-white border-l shadow-xl flex flex-col h-[50vh] lg:h-full">
+            <div className="w-full lg:w-96 bg-white border-l shadow-xl flex flex-col h-[40vh] lg:h-full">
                 <div className="p-4 border-b bg-gray-50">
                     <h2 className="font-bold text-lg flex items-center gap-2">
                         {/* ShoppingCart icon could go here if needed again, or just text */}

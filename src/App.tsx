@@ -23,6 +23,7 @@ const OrderDetails = React.lazy(() => import('./pages/OrderDetails').then(module
 const POS = React.lazy(() => import('./pages/POS_Refactored').then(module => ({ default: module.POSRefactored })));
 const Clients = React.lazy(() => import('./pages/Clients').then(module => ({ default: module.Clients })));
 const ClientDetails = React.lazy(() => import('./pages/ClientDetails').then(module => ({ default: module.ClientDetails })));
+const Reports = React.lazy(() => import('./pages/Reports').then(module => ({ default: module.Reports })));
 const Transitions = React.lazy(() => import('./pages/Transitions').then(module => ({ default: module.Transitions })));
 const Activities = React.lazy(() => import('./pages/Activities').then(module => ({ default: module.Activities })));
 const Contacts = React.lazy(() => import('./pages/Contacts').then(module => ({ default: module.Contacts })));
@@ -83,6 +84,7 @@ function App() {
                 <Route path="transitions" element={<Transitions />} />
                 <Route path="activities" element={<Activities />} />
                 <Route path="contacts" element={<Contacts />} />
+                <Route path="reports" element={<Reports />} />
                 <Route path="profile" element={<Profile />} />
                 <Route path="settings" element={<Settings />} />
               </Route>

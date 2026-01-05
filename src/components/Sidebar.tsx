@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, ShoppingBag, Layers, LogOut, Package, Settings2, Ticket, Star, Settings, ClipboardList, Users, Activity, MessageSquare } from 'lucide-react';
+import { LayoutDashboard, ShoppingBag, Layers, LogOut, Package, Settings2, Ticket, Star, Settings, ClipboardList, Users, Activity, MessageSquare, BarChart3 } from 'lucide-react';
 import { cn } from '../utils/cn';
 
 const sidebarItems = [
@@ -15,6 +15,7 @@ const sidebarItems = [
     { icon: ClipboardList, label: 'Transitions', path: '/transitions' },
     { icon: Activity, label: 'Activities', path: '/activities' },
     { icon: MessageSquare, label: 'Contacts', path: '/contacts' },
+    { icon: BarChart3, label: 'Reports', path: '/reports' },
     { icon: Settings, label: 'Settings', path: '/settings' },
 ];
 

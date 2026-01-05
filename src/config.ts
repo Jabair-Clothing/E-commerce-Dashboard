@@ -84,5 +84,13 @@ export const endpoints = {
     contacts: {
         all: `${API_BASE_URL}/contact`,
         delete: (id: number | string) => `${API_BASE_URL}/contact/${id}`,
+    },
+    reports: {
+        overview: `${API_BASE_URL}/reports/overview`,
+        sales: `${API_BASE_URL}/reports/sales`,
+        receivables: `${API_BASE_URL}/reports/receivables`,
+        bestSellers: `${API_BASE_URL}/reports/best-sellers`,
+        coupons: `${API_BASE_URL}/reports/coupons`,
+        wishlists: `${API_BASE_URL}/reports/wishlists`,
     }
 };

@@ -187,6 +187,9 @@ export const PaymentInfo: React.FC<PaymentInfoProps> = ({ payments, orderId }) =
                                         <div className="flex items-center gap-4">
                                             <div className="text-right">
                                                 <p className="text-sm font-bold text-gray-900">৳{payment.amount}</p>
+                                                <p className="text-xs text-red-500 font-medium">
+                                                    Due: ৳{payment.due_amount}
+                                                </p>
                                                 <p className="text-xs text-gray-500">
                                                     Paid: ৳{payment.paid_amount}
                                                 </p>

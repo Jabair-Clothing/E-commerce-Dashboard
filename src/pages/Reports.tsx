@@ -173,19 +173,24 @@ export const Reports: React.FC = () => {
                     <p className="text-sm text-gray-500">Monitor your business performance metrics</p>
                 </div>
 
-                <div className="flex items-center gap-2 bg-white p-2 rounded-lg shadow-sm border border-gray-200">
-                    <Calendar className="h-4 w-4 text-gray-500" />
-                    <input
-                        type="date"
-                        className="text-sm border-none focus:ring-0 p-0 text-gray-600"
-                        onChange={(e) => setDateRange(prev => ({ ...prev, start: e.target.value }))}
-                    />
-                    <span className="text-gray-400">-</span>
-                    <input
-                        type="date"
-                        className="text-sm border-none focus:ring-0 p-0 text-gray-600"
-                        onChange={(e) => setDateRange(prev => ({ ...prev, end: e.target.value }))}
-                    />
+                <div className="flex items-center gap-3 bg-white p-1.5 rounded-lg shadow-sm border border-gray-200 ring-1 ring-gray-200/50">
+                    <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-50 rounded-md border border-gray-200/50 hover:border-gray-300 transition-colors">
+                        <Calendar className="h-4 w-4 text-gray-500" />
+                        <input
+                            type="date"
+                            className="text-sm bg-transparent border-none focus:ring-0 p-0 text-gray-700 placeholder-gray-400 font-medium cursor-pointer"
+                            onChange={(e) => setDateRange(prev => ({ ...prev, start: e.target.value }))}
+                        />
+                    </div>
+                    <span className="text-gray-400 font-medium">to</span>
+                    <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-50 rounded-md border border-gray-200/50 hover:border-gray-300 transition-colors">
+                        <Calendar className="h-4 w-4 text-gray-500" />
+                        <input
+                            type="date"
+                            className="text-sm bg-transparent border-none focus:ring-0 p-0 text-gray-700 placeholder-gray-400 font-medium cursor-pointer"
+                            onChange={(e) => setDateRange(prev => ({ ...prev, end: e.target.value }))}
+                        />
+                    </div>
                 </div>
             </div>
 

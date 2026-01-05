@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Loader2, MapPin, Mail, Phone, Calendar, ShoppingBag, CreditCard, DollarSign, Pencil, Trash2, X, Plus } from 'lucide-react';
+import { ArrowLeft, Loader2, MapPin, Mail, Phone, Calendar, ShoppingBag, CreditCard, DollarSign, Pencil, Trash2, X, Plus, Heart } from 'lucide-react';
 import { endpoints } from '../config';
 import { useAuth } from '../context/AuthContext';
 
@@ -32,6 +32,15 @@ interface ClientDetails {
     };
     payment_summary: {
         due_amount: number;
+    };
+    wishlist: {
+        count: number;
+        products: {
+            wishlist_id: number;
+            product_id: number;
+            product_name: string;
+            product_image: string | null;
+        }[];
     };
 }
 
@@ -321,6 +330,47 @@ export const ClientDetails: React.FC = () => {
                                         <div className="text-sm text-gray-600">{addr.phone}</div>
                                         <div className="text-sm text-gray-600 mt-2">{addr.address}</div>
                                         <div className="text-sm text-gray-600">{addr.city}, {addr.zip}</div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Wishlist Section */}
+                    <div className="bg-white rounded-xl shadow-sm ring-1 ring-gray-200 p-6">
+                        <div className="flex items-center justify-between mb-4">
+                            <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                                <Heart className="h-5 w-5 text-gray-500" />
+                                Wishlist
+                                <span className="text-xs font-normal text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
+                                    {clientData.wishlist?.count || 0}
+                                </span>
+                            </h2>
+                        </div>
+                        {(!clientData.wishlist?.products || clientData.wishlist.products.length === 0) ? (
+                            <div className="text-center py-10 bg-gray-50 rounded-lg border border-dashed border-gray-300">
+                                <Heart className="h-10 w-10 text-gray-300 mx-auto mb-2" />
+                                <p className="text-gray-500 text-sm">No items in wishlist.</p>
+                            </div>
+                        ) : (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                                {clientData.wishlist.products.map((item) => (
+                                    <div key={item.wishlist_id} className="flex items-center gap-3 p-3 border rounded-lg hover:border-pink-200 hover:bg-pink-50/30 transition-colors group">
+                                        <div className="h-12 w-12 rounded-lg bg-gray-100 border border-gray-200 overflow-hidden flex-shrink-0">
+                                            {item.product_image ? (
+                                                <img src={item.product_image} alt={item.product_name} className="h-full w-full object-cover" />
+                                            ) : (
+                                                <div className="h-full w-full flex items-center justify-center text-gray-400">
+                                                    <ShoppingBag className="h-6 w-6" />
+                                                </div>
+                                            )}
+                                        </div>
+                                        <div className="min-w-0 flex-1">
+                                            <p className="text-sm font-medium text-gray-900 truncate" title={item.product_name}>
+                                                {item.product_name}
+                                            </p>
+                                            <p className="text-xs text-gray-500">ID: #{item.product_id}</p>
+                                        </div>
                                     </div>
                                 ))}
                             </div>

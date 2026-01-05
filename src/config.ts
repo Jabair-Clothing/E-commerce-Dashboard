@@ -66,6 +66,12 @@ export const endpoints = {
         update: (id: number | string) => `${API_BASE_URL}/shipping-addresses/${id}`,
         delete: (id: number | string) => `${API_BASE_URL}/shipping-addresses/${id}`,
     },
+    transitions: {
+        all: `${API_BASE_URL}/transiions`,
+    },
+    activities: {
+        all: `${API_BASE_URL}/activitys`,
+    },
     payments: {
         updateStatus: (id: number | string) => `${API_BASE_URL}/payments/update-status/${id}`,
         updatePaidAmount: (id: number | string) => `${API_BASE_URL}/payments/update-paid-amount/${id}`,

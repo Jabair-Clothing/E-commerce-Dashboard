@@ -19,6 +19,9 @@ interface Client {
     payment_summary: {
         due_amount: number;
     };
+    wishlist_summary: {
+        total_wishlist: number;
+    };
 }
 
 export const Clients: React.FC = () => {
@@ -194,6 +197,7 @@ export const Clients: React.FC = () => {
                                     <th scope="col" className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Contact</th>
                                     <th scope="col" className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Total Orders</th>
                                     <th scope="col" className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Total Spend</th>
+                                    <th scope="col" className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Wishlist</th>
                                     <th scope="col" className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Due</th>
                                     <th scope="col" className="relative px-6 py-3">
                                         <span className="sr-only">Actions</span>
@@ -222,6 +226,9 @@ export const Clients: React.FC = () => {
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-medium">
                                                 ৳{client.order_summary?.total_spend || 0}
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                {client.wishlist_summary?.total_wishlist || 0}
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap">
                                                 {client.payment_summary?.due_amount > 0 ? (

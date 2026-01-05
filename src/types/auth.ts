@@ -24,9 +24,12 @@ export interface LoginResponse {
     errors: string | null;
 }
 
+import type { OrderInfo } from './pos';
+
 export interface AuthContextType {
     user: User | null;
     token: string | null;
+    orderInfo: OrderInfo | null;
     login: (token: string, user: User) => void;
     logout: () => void;
     isAuthenticated: boolean;

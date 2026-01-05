@@ -146,14 +146,16 @@ export const POSRefactored: React.FC = () => {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             if (!response.ok) throw new Error('Failed to fetch order info');
-            const data = await response.json();
-            // Cache in localStorage
-            localStorage.setItem('pos_order_info', JSON.stringify(data));
+            const result = await response.json();
+            const data = result.data; // Extract relevant data
+            // Cache in localStorage to match AuthContext
+            localStorage.setItem('orderInfo', JSON.stringify(data));
             return data;
         },
         enabled: !!token,
+        staleTime: 5 * 60 * 1000, // 5 minutes
         initialData: () => {
-            const saved = localStorage.getItem('pos_order_info');
+            const saved = localStorage.getItem('orderInfo');
             return saved ? JSON.parse(saved) : undefined;
         }
     });

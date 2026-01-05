@@ -65,5 +65,9 @@ export const endpoints = {
         create: `${API_BASE_URL}/shipping-addresses`,
         update: (id: number | string) => `${API_BASE_URL}/shipping-addresses/${id}`,
         delete: (id: number | string) => `${API_BASE_URL}/shipping-addresses/${id}`,
+    },
+    payments: {
+        updateStatus: (id: number | string) => `${API_BASE_URL}/payments/update-status/${id}`,
+        updatePaidAmount: (id: number | string) => `${API_BASE_URL}/payments/update-paid-amount/${id}`,
     }
 };

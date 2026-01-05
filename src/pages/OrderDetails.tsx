@@ -260,7 +260,7 @@ export const OrderDetails: React.FC = () => {
                         isUpdating={updateQuantityMutation.isPending}
                     />
 
-                    <PaymentInfo payments={payments} />
+                    <PaymentInfo payments={payments} orderId={id!} />
                 </div>
 
                 {/* Right Column - Customer & Summary */}

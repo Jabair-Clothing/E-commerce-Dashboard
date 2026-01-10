@@ -311,7 +311,10 @@ export const POSRefactored: React.FC = () => {
                 body: JSON.stringify(orderData)
             });
             const data = await response.json();
-            if (!response.ok) throw new Error(data.message || 'Failed to place order');
+            if (!response.ok) {
+                const errorMessage = data.errors || data.message || 'Failed to place order';
+                throw new Error(typeof errorMessage === 'string' ? errorMessage : JSON.stringify(errorMessage));
+            }
             return data;
         },
         onSuccess: (data) => {

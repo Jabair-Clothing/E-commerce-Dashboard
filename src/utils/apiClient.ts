@@ -25,6 +25,11 @@ export const fetchWithAuth = async (url: string, options: RequestInit = {}): Pro
         headers.set('Accept', 'application/json');
     }
 
+    // Default Content-Type to application/json if not set and body is not FormData
+    if (!headers.has('Content-Type') && !(options.body instanceof FormData)) {
+        headers.set('Content-Type', 'application/json');
+    }
+
     const config: RequestInit = {
         ...options,
         headers,

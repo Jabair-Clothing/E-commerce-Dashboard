@@ -5,6 +5,7 @@ import { endpoints } from '../config';
 import type { Category, ParentCategory } from '../types/category';
 import { useAuth } from '../context/AuthContext';
 import { getOptimizedImageUrl } from '../utils/image';
+import { fetchWithAuth } from '../utils/apiClient';
 import { createPortal } from 'react-dom';
 
 // Simple Modal Component
@@ -74,9 +75,7 @@ export const Categories: React.FC = () => {
     const { data: parentsData, isLoading: isLoadingParents } = useQuery({
         queryKey: ['parents'],
         queryFn: async () => {
-            const res = await fetch(endpoints.categories.parents, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
+            const res = await fetchWithAuth(endpoints.categories.parents);
             return res.json();
         },
         enabled: !!token,
@@ -91,9 +90,7 @@ export const Categories: React.FC = () => {
             if (activeTab !== 'all') {
                 url = `${endpoints.categories.parents}/${activeTab}`;
             }
-            const res = await fetch(url, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
+            const res = await fetchWithAuth(url);
             return res.json();
         },
         enabled: !!token,
@@ -111,9 +108,8 @@ export const Categories: React.FC = () => {
             const url = editingParent
                 ? `${endpoints.categories.parents}/${editingParent.id}`
                 : endpoints.categories.parents;
-            const res = await fetch(url, {
+            const res = await fetchWithAuth(url, {
                 method: 'POST', // Using POST for both create and update (with FormData)
-                headers: { 'Authorization': `Bearer ${token}` },
                 body: formData
             });
             return res.json();
@@ -134,12 +130,8 @@ export const Categories: React.FC = () => {
 
     const deleteParentMutation = useMutation({
         mutationFn: async (id: number) => {
-            const res = await fetch(`${endpoints.categories.parents}/${id}`, {
+            const res = await fetchWithAuth(`${endpoints.categories.parents}/${id}`, {
                 method: 'DELETE',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Accept': 'application/json'
-                }
             });
             if (!res.ok) throw new Error('Failed to delete');
             return res.json();
@@ -160,9 +152,8 @@ export const Categories: React.FC = () => {
             const url = editingCategory
                 ? `${endpoints.categories.all}/${editingCategory.id}`
                 : endpoints.categories.all;
-            const res = await fetch(url, {
+            const res = await fetchWithAuth(url, {
                 method: 'POST',
-                headers: { 'Authorization': `Bearer ${token}` },
                 body: formData
             });
             return res.json();
@@ -185,12 +176,8 @@ export const Categories: React.FC = () => {
 
     const deleteCategoryMutation = useMutation({
         mutationFn: async (id: number) => {
-            const res = await fetch(`${endpoints.categories.all}/${id}`, {
+            const res = await fetchWithAuth(`${endpoints.categories.all}/${id}`, {
                 method: 'DELETE',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Accept': 'application/json'
-                }
             });
             if (!res.ok) throw new Error('Failed to delete');
             return res.json();

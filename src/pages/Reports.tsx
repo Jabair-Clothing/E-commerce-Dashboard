@@ -9,6 +9,7 @@ import { endpoints } from '../config';
 import { useAuth } from '../context/AuthContext';
 import { SalesChart } from '../components/SalesChart';
 import { cn } from '../utils/cn';
+import { fetchWithAuth } from '../utils/apiClient';
 
 // --- Interfaces ---
 interface DashboardOverview {
@@ -104,7 +105,7 @@ export const Reports: React.FC = () => {
     const overviewQuery = useQuery({
         queryKey: ['reports', 'overview', dateRange],
         queryFn: async () => {
-            const res = await fetch(getUrl(endpoints.reports.overview), { headers: { Authorization: `Bearer ${token}` } });
+            const res = await fetchWithAuth(getUrl(endpoints.reports.overview));
             return (await res.json()).data as DashboardOverview;
         },
         enabled: activeTab === 'overview' && !!token
@@ -113,7 +114,7 @@ export const Reports: React.FC = () => {
     const salesQuery = useQuery({
         queryKey: ['reports', 'sales', dateRange],
         queryFn: async () => {
-            const res = await fetch(getUrl(endpoints.reports.sales), { headers: { Authorization: `Bearer ${token}` } });
+            const res = await fetchWithAuth(getUrl(endpoints.reports.sales));
             return (await res.json()).data as SalesReportItem[];
         },
         enabled: activeTab === 'sales' && !!token
@@ -122,7 +123,7 @@ export const Reports: React.FC = () => {
     const receivablesQuery = useQuery({
         queryKey: ['reports', 'receivables', dateRange],
         queryFn: async () => {
-            const res = await fetch(getUrl(endpoints.reports.receivables), { headers: { Authorization: `Bearer ${token}` } });
+            const res = await fetchWithAuth(getUrl(endpoints.reports.receivables));
             return (await res.json()).data as { count: number, total_due_amount: number, list: ReceivableItem[] };
         },
         enabled: activeTab === 'receivables' && !!token
@@ -131,7 +132,7 @@ export const Reports: React.FC = () => {
     const bestSellersQuery = useQuery({
         queryKey: ['reports', 'bestSellers', dateRange],
         queryFn: async () => {
-            const res = await fetch(getUrl(endpoints.reports.bestSellers), { headers: { Authorization: `Bearer ${token}` } });
+            const res = await fetchWithAuth(getUrl(endpoints.reports.bestSellers));
             return (await res.json()).data as BestSellerItem[];
         },
         enabled: activeTab === 'bestSellers' && !!token
@@ -140,7 +141,7 @@ export const Reports: React.FC = () => {
     const couponsQuery = useQuery({
         queryKey: ['reports', 'coupons', dateRange],
         queryFn: async () => {
-            const res = await fetch(getUrl(endpoints.reports.coupons), { headers: { Authorization: `Bearer ${token}` } });
+            const res = await fetchWithAuth(getUrl(endpoints.reports.coupons));
             return (await res.json()).data as CouponReportItem[];
         },
         enabled: activeTab === 'coupons' && !!token
@@ -149,7 +150,7 @@ export const Reports: React.FC = () => {
     const wishlistsQuery = useQuery({
         queryKey: ['reports', 'wishlists'],
         queryFn: async () => {
-            const res = await fetch(getUrl(endpoints.reports.wishlists), { headers: { Authorization: `Bearer ${token}` } });
+            const res = await fetchWithAuth(getUrl(endpoints.reports.wishlists));
             return (await res.json()).data as WishlistItem[];
         },
         enabled: activeTab === 'wishlists' && !!token

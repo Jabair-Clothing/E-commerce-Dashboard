@@ -4,6 +4,7 @@ import { Plus, Search, Edit, Trash2 } from 'lucide-react';
 import { endpoints } from '../config';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import { fetchWithAuth } from '../utils/apiClient';
 
 interface Product {
     id: number;
@@ -54,11 +55,7 @@ export const Products: React.FC = () => {
             if (searchTerm) {
                 url.searchParams.append('search', searchTerm);
             }
-            const headers: HeadersInit = {
-                'Content-Type': 'application/json',
-                ...(token ? { Authorization: `Bearer ${token}` } : {}),
-            };
-            const response = await fetch(url.toString(), { headers });
+            const response = await fetchWithAuth(url.toString());
             if (!response.ok) throw new Error('Network response was not ok');
             return response.json() as Promise<ApiResponse>;
         },
@@ -75,11 +72,7 @@ export const Products: React.FC = () => {
     const deleteMutation = useMutation({
         mutationFn: async (id: number) => {
             const url = endpoints.products.delete(id);
-            const headers: HeadersInit = {
-                'Content-Type': 'application/json',
-                ...(token ? { Authorization: `Bearer ${token}` } : {}),
-            };
-            const response = await fetch(url, { method: 'DELETE', headers });
+            const response = await fetchWithAuth(url, { method: 'DELETE' });
             return response.json();
         },
         onSuccess: () => {
@@ -101,11 +94,7 @@ export const Products: React.FC = () => {
     const statusMutation = useMutation({
         mutationFn: async (id: number) => {
             const url = endpoints.products.updateStatus(id);
-            const headers: HeadersInit = {
-                'Content-Type': 'application/json',
-                ...(token ? { Authorization: `Bearer ${token}` } : {}),
-            };
-            const response = await fetch(url, { method: 'PATCH', headers });
+            const response = await fetchWithAuth(url, { method: 'PATCH' });
             return response.json();
         },
         onSuccess: () => {

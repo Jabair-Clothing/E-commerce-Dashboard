@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { CreditCard, Pencil, X, Check, Loader2 } from 'lucide-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { endpoints } from '../../config';
-import { useAuth } from '../../context/AuthContext';
+import { fetchWithAuth } from '../../utils/apiClient';
 import type { PaymentSegment } from '../../types/order';
 
 interface PaymentInfoProps {
@@ -11,7 +11,7 @@ interface PaymentInfoProps {
 }
 
 export const PaymentInfo: React.FC<PaymentInfoProps> = ({ payments, orderId }) => {
-    const { token } = useAuth();
+    // const { token } = useAuth(); // Removed unused token
     const queryClient = useQueryClient();
     const [editingPaymentId, setEditingPaymentId] = useState<number | null>(null);
     const [editForm, setEditForm] = useState<{
@@ -24,12 +24,8 @@ export const PaymentInfo: React.FC<PaymentInfoProps> = ({ payments, orderId }) =
 
     const updateStatusMutation = useMutation({
         mutationFn: async ({ paymentId, status }: { paymentId: number; status: number }) => {
-            const response = await fetch(endpoints.payments.updateStatus(paymentId), {
+            const response = await fetchWithAuth(endpoints.payments.updateStatus(paymentId), {
                 method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
                 body: JSON.stringify({ status })
             });
             if (!response.ok) {
@@ -45,12 +41,8 @@ export const PaymentInfo: React.FC<PaymentInfoProps> = ({ payments, orderId }) =
 
     const updateAmountMutation = useMutation({
         mutationFn: async ({ paymentId, amount }: { paymentId: number; amount: number }) => {
-            const response = await fetch(endpoints.payments.updatePaidAmount(paymentId), {
+            const response = await fetchWithAuth(endpoints.payments.updatePaidAmount(paymentId), {
                 method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
                 body: JSON.stringify({ paid_amount: amount })
             });
             if (!response.ok) {

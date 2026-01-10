@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Save, Plus, Trash2, Upload, X } from 'lucide-react';
 import { endpoints } from '../config';
 import { useAuth } from '../context/AuthContext';
+import { fetchWithAuth } from '../utils/apiClient';
 
 interface AttributeValue {
     id: number;
@@ -50,8 +51,7 @@ export const AddProduct: React.FC = () => {
     const { data: parentsData, isLoading: isLoadingParents } = useQuery({
         queryKey: ['parentCategories'],
         queryFn: async () => {
-            const headers: HeadersInit = { Authorization: `Bearer ${token}` };
-            const res = await fetch(endpoints.categories.parents, { headers });
+            const res = await fetchWithAuth(endpoints.categories.parents);
             return res.json();
         },
         enabled: !!token,
@@ -61,8 +61,7 @@ export const AddProduct: React.FC = () => {
     const { data: catsData, isLoading: isLoadingCategories } = useQuery({
         queryKey: ['categories'],
         queryFn: async () => {
-            const headers: HeadersInit = { Authorization: `Bearer ${token}` };
-            const res = await fetch(endpoints.categories.all, { headers });
+            const res = await fetchWithAuth(endpoints.categories.all);
             return res.json();
         },
         enabled: !!token,
@@ -72,8 +71,7 @@ export const AddProduct: React.FC = () => {
     const { data: attrsData, isLoading: isLoadingAttributes } = useQuery({
         queryKey: ['attributes'],
         queryFn: async () => {
-            const headers: HeadersInit = { Authorization: `Bearer ${token}` };
-            const res = await fetch(endpoints.attributes.all, { headers });
+            const res = await fetchWithAuth(endpoints.attributes.all);
             return res.json();
         },
         enabled: !!token,
@@ -150,11 +148,8 @@ export const AddProduct: React.FC = () => {
 
     const createMutation = useMutation({
         mutationFn: async (data: FormData) => {
-            const response = await fetch(endpoints.products.create, {
+            const response = await fetchWithAuth(endpoints.products.create, {
                 method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                },
                 body: data,
             });
             return response.json();

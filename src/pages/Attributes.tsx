@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { endpoints } from '../config';
 import type { Attribute, AttributeValue } from '../types/attribute';
 import { useAuth } from '../context/AuthContext';
+import { fetchWithAuth } from '../utils/apiClient';
 import { createPortal } from 'react-dom';
 
 // Simple Modal Component
@@ -50,9 +51,7 @@ export const Attributes: React.FC = () => {
     const { data: attributesData, isLoading } = useQuery({
         queryKey: ['attributes'],
         queryFn: async () => {
-            const res = await fetch(endpoints.attributes.all, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
+            const res = await fetchWithAuth(endpoints.attributes.all);
             return res.json();
         },
         enabled: !!token,
@@ -71,13 +70,8 @@ export const Attributes: React.FC = () => {
 
             const method = editingAttribute ? 'PUT' : 'POST';
 
-            const response = await fetch(url, {
+            const response = await fetchWithAuth(url, {
                 method,
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                },
                 body: JSON.stringify({ name: attributeName })
             });
             return response.json();
@@ -95,12 +89,8 @@ export const Attributes: React.FC = () => {
 
     const deleteAttributeMutation = useMutation({
         mutationFn: async (id: number) => {
-            const response = await fetch(`${endpoints.attributes.all}/${id}`, {
+            const response = await fetchWithAuth(`${endpoints.attributes.all}/${id}`, {
                 method: 'DELETE',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Accept': 'application/json',
-                },
             });
             if (!response.ok) throw new Error('Failed');
             return response.json();
@@ -132,13 +122,8 @@ export const Attributes: React.FC = () => {
                 body.code = valueCode;
             }
 
-            const response = await fetch(url, {
+            const response = await fetchWithAuth(url, {
                 method,
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                },
                 body: JSON.stringify(body)
             });
             return response.json();
@@ -156,12 +141,8 @@ export const Attributes: React.FC = () => {
 
     const deleteValueMutation = useMutation({
         mutationFn: async (id: number) => {
-            const response = await fetch(`${endpoints.attributes.values}/${id}`, {
+            const response = await fetchWithAuth(`${endpoints.attributes.values}/${id}`, {
                 method: 'DELETE',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Accept': 'application/json',
-                },
             });
             if (!response.ok) throw new Error('Failed');
             return response.json();

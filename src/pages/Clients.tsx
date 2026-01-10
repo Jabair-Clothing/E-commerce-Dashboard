@@ -5,6 +5,7 @@ import { Search, Eye, Loader2, Users, Plus, X, Trash2 } from 'lucide-react';
 import { endpoints } from '../config';
 import { useAuth } from '../context/AuthContext';
 import { Link } from 'react-router-dom';
+import { fetchWithAuth } from '../utils/apiClient';
 
 interface Client {
     id: number;
@@ -43,10 +44,7 @@ export const Clients: React.FC = () => {
     const { data: clientsData, isLoading } = useQuery({
         queryKey: ['clients'],
         queryFn: async () => {
-            const response = await fetch(endpoints.clients.all, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            if (!response.ok) throw new Error('Failed to fetch clients');
+            const response = await fetchWithAuth(endpoints.clients.all);
             return response.json();
         },
         enabled: !!token
@@ -54,13 +52,8 @@ export const Clients: React.FC = () => {
 
     const createClientMutation = useMutation({
         mutationFn: async (userData: typeof formData) => {
-            const response = await fetch(endpoints.users.register, {
+            const response = await fetchWithAuth(endpoints.users.register, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    // Note: Registration endpoint usually public, but if restricted by admin middleware:
-                    'Authorization': `Bearer ${token}`
-                },
                 body: JSON.stringify(userData)
             });
 
@@ -86,11 +79,8 @@ export const Clients: React.FC = () => {
 
     const deleteClientMutation = useMutation({
         mutationFn: async (id: number) => {
-            const response = await fetch(endpoints.users.delete(id), {
+            const response = await fetchWithAuth(endpoints.users.delete(id), {
                 method: 'DELETE',
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
             });
 
             const data = await response.json();

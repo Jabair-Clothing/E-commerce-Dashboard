@@ -9,6 +9,7 @@ import { CartList } from '../components/POS/CartList';
 import { CheckoutForm } from '../components/POS/CheckoutForm';
 import { POSInvoice } from '../components/POS/POSInvoice';
 import type { Product, CartItem, ParentCategory, Category, OrderInfo } from '../types/pos';
+import { fetchWithAuth } from '../utils/apiClient';
 
 export const POSRefactored: React.FC = () => {
     const { token } = useAuth();
@@ -65,9 +66,7 @@ export const POSRefactored: React.FC = () => {
     const { data: clientsData } = useQuery({
         queryKey: ['clients-all'],
         queryFn: async () => {
-            const response = await fetch(endpoints.clients.all, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
+            const response = await fetchWithAuth(endpoints.clients.all);
             if (!response.ok) throw new Error('Failed to fetch clients');
             return response.json();
         },
@@ -88,9 +87,7 @@ export const POSRefactored: React.FC = () => {
     const { data: parentsData } = useQuery({
         queryKey: ['pos-parents'],
         queryFn: async () => {
-            const response = await fetch(endpoints.categories.parents, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
+            const response = await fetchWithAuth(endpoints.categories.parents);
             if (!response.ok) throw new Error('Failed to fetch parent categories');
             return response.json();
         },
@@ -106,9 +103,7 @@ export const POSRefactored: React.FC = () => {
             if (selectedParentCategory) {
                 url = `${endpoints.categories.parents}/${selectedParentCategory}`;
             }
-            const response = await fetch(url, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
+            const response = await fetchWithAuth(url);
             if (!response.ok) throw new Error('Failed to fetch categories');
             return response.json();
         },
@@ -128,9 +123,7 @@ export const POSRefactored: React.FC = () => {
             if (selectedParentCategory) url.searchParams.append('parent_category_id', selectedParentCategory.toString());
             if (selectedCategory) url.searchParams.append('category_id', selectedCategory.toString());
 
-            const response = await fetch(url.toString(), {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
+            const response = await fetchWithAuth(url.toString());
             if (!response.ok) throw new Error('Failed to fetch products');
             return response.json();
         },
@@ -142,9 +135,7 @@ export const POSRefactored: React.FC = () => {
     const { data: orderInfoData } = useQuery({
         queryKey: ['orderInfo'],
         queryFn: async () => {
-            const response = await fetch(endpoints.orderInfo.get, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
+            const response = await fetchWithAuth(endpoints.orderInfo.get);
             if (!response.ok) throw new Error('Failed to fetch order info');
             const result = await response.json();
             const data = result.data; // Extract relevant data
@@ -271,9 +262,7 @@ export const POSRefactored: React.FC = () => {
         setShowClientDropdown(false);
 
         try {
-            const response = await fetch(endpoints.clients.details(client.id), {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
+            const response = await fetchWithAuth(endpoints.clients.details(client.id));
             const data = await response.json();
             if (response.ok && data.data && data.data[0] && data.data[0].shipping_addresses) {
                 setShippingAddresses(data.data[0].shipping_addresses);
@@ -317,12 +306,8 @@ export const POSRefactored: React.FC = () => {
     // --- Place Order ---
     const placeOrderMutation = useMutation({
         mutationFn: async (orderData: any) => {
-            const response = await fetch(endpoints.orders.place, {
+            const response = await fetchWithAuth(endpoints.orders.place, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
                 body: JSON.stringify(orderData)
             });
             const data = await response.json();

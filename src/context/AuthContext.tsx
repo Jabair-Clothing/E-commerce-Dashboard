@@ -4,6 +4,7 @@ import type { User, AuthContextType } from '../types/auth';
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 import { endpoints } from '../config';
+import { fetchWithAuth } from '../utils/apiClient';
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     const [user, setUser] = useState<User | null>(() => {
@@ -35,7 +36,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         localStorage.setItem('token', newToken);
         localStorage.setItem('user', JSON.stringify(newUser));
         // Fetch order info immediately after login
-        fetchOrderInfo(newToken);
+        fetchOrderInfo();
     };
 
     const logout = () => {
@@ -47,14 +48,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         localStorage.removeItem('orderInfo');
     };
 
-    const fetchOrderInfo = async (authToken: string) => {
+    const fetchOrderInfo = async () => {
         try {
-            const response = await fetch(endpoints.orderInfo.get, {
-                headers: {
-                    'Authorization': `Bearer ${authToken}`,
-                    'Accept': 'application/json',
-                }
-            });
+            const response = await fetchWithAuth(endpoints.orderInfo.get);
             if (response.ok) {
                 const data = await response.json();
                 if (data.data) {
@@ -69,9 +65,21 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     React.useEffect(() => {
         if (token && !orderInfo) {
-            fetchOrderInfo(token);
+            fetchOrderInfo();
         }
     }, [token, orderInfo]);
+
+    React.useEffect(() => {
+        const handleLogout = () => {
+            logout();
+        };
+
+        window.addEventListener('auth:logout', handleLogout);
+
+        return () => {
+            window.removeEventListener('auth:logout', handleLogout);
+        };
+    }, []);
 
     return (
         <AuthContext.Provider value={{ user, token, orderInfo, login, logout, isAuthenticated: !!token }}>

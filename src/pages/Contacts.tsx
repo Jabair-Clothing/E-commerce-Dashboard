@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Trash2, Search, Mail, MessageSquare } from 'lucide-react';
 import { endpoints } from '../config';
 import { useAuth } from '../context/AuthContext';
+import { fetchWithAuth } from '../utils/apiClient';
 
 interface Contact {
     id: number;
@@ -22,10 +23,7 @@ export const Contacts: React.FC = () => {
     const { data: contacts, isLoading, error } = useQuery({
         queryKey: ['contacts'],
         queryFn: async () => {
-            const response = await fetch(endpoints.contacts.all, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            if (!response.ok) throw new Error('Failed to fetch contacts');
+            const response = await fetchWithAuth(endpoints.contacts.all);
             const result = await response.json();
             return result.data as Contact[];
         },
@@ -34,9 +32,8 @@ export const Contacts: React.FC = () => {
 
     const deleteContactMutation = useMutation({
         mutationFn: async (id: number) => {
-            const response = await fetch(endpoints.contacts.delete(id), {
+            const response = await fetchWithAuth(endpoints.contacts.delete(id), {
                 method: 'DELETE',
-                headers: { 'Authorization': `Bearer ${token}` }
             });
             if (!response.ok) throw new Error('Failed to delete contact');
             return response.json();

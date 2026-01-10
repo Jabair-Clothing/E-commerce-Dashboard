@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { User, Mail, Phone, MapPin, Calendar, Shield } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { endpoints } from '../config';
+import { fetchWithAuth } from '../utils/apiClient';
 import type { User as UserType } from '../types/auth';
 
 export const Profile: React.FC = () => {
@@ -13,16 +14,7 @@ export const Profile: React.FC = () => {
     useEffect(() => {
         const fetchProfile = async () => {
             try {
-                const response = await fetch(endpoints.profile, {
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Accept': 'application/json',
-                    }
-                });
-
-                if (!response.ok) {
-                    throw new Error('Failed to fetch profile');
-                }
+                const response = await fetchWithAuth(endpoints.profile);
 
                 const data = await response.json();
                 if (data.success && data.data) {

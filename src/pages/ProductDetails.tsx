@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useParams, useNavigate } from 'react-router-dom';
 import { endpoints } from '../config';
 import { useAuth } from '../context/AuthContext';
+import { fetchWithAuth } from '../utils/apiClient';
 import { ProductHeader } from '../components/Product/ProductHeader';
 import { BasicInfoForm } from '../components/Product/BasicInfoForm';
 import { VariantTable } from '../components/Product/VariantTable';
@@ -37,8 +38,7 @@ export const ProductDetails: React.FC = () => {
     const { data: productData, isPending: isLoadingProduct } = useQuery({
         queryKey: ['product', id],
         queryFn: async () => {
-            const headers: HeadersInit = { Authorization: `Bearer ${token}` };
-            const res = await fetch(endpoints.products.getById(id!), { headers });
+            const res = await fetchWithAuth(endpoints.products.getById(id!));
             return res.json();
         },
         enabled: !!id && !!token,
@@ -47,8 +47,7 @@ export const ProductDetails: React.FC = () => {
     const { data: skuAttrsData } = useQuery({
         queryKey: ['skuAttributes', id],
         queryFn: async () => {
-            const headers: HeadersInit = { Authorization: `Bearer ${token}` };
-            const res = await fetch(endpoints.products.skuAttributes(id!), { headers });
+            const res = await fetchWithAuth(endpoints.products.skuAttributes(id!));
             return res.json();
         },
         enabled: !!id && !!token,
@@ -57,8 +56,7 @@ export const ProductDetails: React.FC = () => {
     const { data: availAttrsData } = useQuery({
         queryKey: ['attributes'],
         queryFn: async () => {
-            const headers: HeadersInit = { Authorization: `Bearer ${token}` };
-            const res = await fetch(endpoints.attributes.all, { headers });
+            const res = await fetchWithAuth(endpoints.attributes.all);
             return res.json();
         },
         enabled: !!token,
@@ -68,8 +66,7 @@ export const ProductDetails: React.FC = () => {
     const { data: parentsData } = useQuery({
         queryKey: ['parentCategories'],
         queryFn: async () => {
-            const headers: HeadersInit = { Authorization: `Bearer ${token}` };
-            const res = await fetch(endpoints.categories.parents, { headers });
+            const res = await fetchWithAuth(endpoints.categories.parents);
             return res.json();
         },
         enabled: !!token,
@@ -79,8 +76,7 @@ export const ProductDetails: React.FC = () => {
     const { data: catsData } = useQuery({
         queryKey: ['categories'],
         queryFn: async () => {
-            const headers: HeadersInit = { Authorization: `Bearer ${token}` };
-            const res = await fetch(endpoints.categories.all, { headers });
+            const res = await fetchWithAuth(endpoints.categories.all);
             return res.json();
         },
         enabled: !!token,
@@ -199,13 +195,8 @@ export const ProductDetails: React.FC = () => {
     // Mutations
     const updateProductMutation = useMutation({
         mutationFn: async (data: typeof formData) => {
-            const headers: HeadersInit = {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`,
-            };
-            const response = await fetch(endpoints.products.getById(id!), {
+            const response = await fetchWithAuth(endpoints.products.getById(id!), {
                 method: 'PUT',
-                headers,
                 body: JSON.stringify({
                     ...data,
                     base_price: parseFloat(data.base_price),
@@ -233,9 +224,8 @@ export const ProductDetails: React.FC = () => {
 
     const deleteProductMutation = useMutation({
         mutationFn: async () => {
-            const response = await fetch(endpoints.products.delete(Number(id)), {
+            const response = await fetchWithAuth(endpoints.products.delete(Number(id)), {
                 method: 'DELETE',
-                headers: { 'Authorization': `Bearer ${token}` },
             });
             return response.json();
         },
@@ -273,9 +263,8 @@ export const ProductDetails: React.FC = () => {
                 });
             });
 
-            const response = await fetch(endpoints.products.addSku(Number(id)), {
+            const response = await fetchWithAuth(endpoints.products.addSku(Number(id)), {
                 method: 'POST',
-                headers: { 'Authorization': `Bearer ${token}` },
                 body: formData,
             });
             return response.json();
@@ -304,12 +293,8 @@ export const ProductDetails: React.FC = () => {
     const updateSkuMutation = useMutation({
         mutationFn: async () => {
             if (!editingSku) return;
-            const response = await fetch(endpoints.products.updateSku(Number(id), editingSku.id), {
+            const response = await fetchWithAuth(endpoints.products.updateSku(Number(id), editingSku.id), {
                 method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`,
-                },
                 body: JSON.stringify({
                     price: parseFloat(editSkuForm.price),
                     quantity: parseInt(editSkuForm.quantity),
@@ -347,12 +332,8 @@ export const ProductDetails: React.FC = () => {
 
     const deleteSkuMutation = useMutation({
         mutationFn: async (skuId: number) => {
-            const response = await fetch(endpoints.products.deleteSkuData(Number(id)), {
+            const response = await fetchWithAuth(endpoints.products.deleteSkuData(Number(id)), {
                 method: 'DELETE',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`,
-                },
                 body: JSON.stringify({ sku_id: skuId })
             });
             return response.json();
@@ -379,11 +360,7 @@ export const ProductDetails: React.FC = () => {
     const statusMutation = useMutation({
         mutationFn: async () => {
             const url = endpoints.products.updateStatus(Number(id));
-            const headers: HeadersInit = {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`,
-            };
-            const response = await fetch(url, { method: 'PATCH', headers });
+            const response = await fetchWithAuth(url, { method: 'PATCH' });
             return response.json();
         },
         onSuccess: (data) => {
@@ -410,9 +387,8 @@ export const ProductDetails: React.FC = () => {
             if (selectedSkuAttrId) {
                 formData.append('product_sku_attribute_id', String(selectedSkuAttrId));
             }
-            const response = await fetch(endpoints.products.images.upload(id!), {
+            const response = await fetchWithAuth(endpoints.products.images.upload(id!), {
                 method: 'POST',
-                headers: { 'Authorization': `Bearer ${token}` },
                 body: formData,
             });
             return response.json();
@@ -432,9 +408,8 @@ export const ProductDetails: React.FC = () => {
 
     const deleteImageMutation = useMutation({
         mutationFn: async (imageId: number) => {
-            const response = await fetch(endpoints.products.images.delete(id!, imageId), {
+            const response = await fetchWithAuth(endpoints.products.images.delete(id!, imageId), {
                 method: 'DELETE',
-                headers: { 'Authorization': `Bearer ${token}` },
             });
             return response.json();
         },
@@ -450,12 +425,8 @@ export const ProductDetails: React.FC = () => {
 
     const setPrimaryImageMutation = useMutation({
         mutationFn: async ({ imageId, sortOrder }: { imageId: number, sortOrder: number }) => {
-            const response = await fetch(endpoints.products.images.update(id!, imageId), {
+            const response = await fetchWithAuth(endpoints.products.images.update(id!, imageId), {
                 method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`,
-                },
                 body: JSON.stringify({ is_primary: true, sort_order: sortOrder }),
             });
             return response.json();
@@ -470,12 +441,8 @@ export const ProductDetails: React.FC = () => {
         mutationFn: async (newOrder: ProductImage[]) => {
             const updates = newOrder.map((img, index) => {
                 const newSortOrder = index + 1;
-                return fetch(endpoints.products.images.update(id!, img.id), {
+                return fetchWithAuth(endpoints.products.images.update(id!, img.id), {
                     method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`,
-                    },
                     body: JSON.stringify({
                         sort_order: newSortOrder,
                         is_primary: img.is_primary

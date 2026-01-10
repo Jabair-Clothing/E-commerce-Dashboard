@@ -4,6 +4,7 @@ import { Search, Eye, Filter, Trash2 } from 'lucide-react';
 import { endpoints } from '../config';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import { fetchWithAuth } from '../utils/apiClient';
 
 interface Order {
     user_name: string;
@@ -59,12 +60,7 @@ export const Orders: React.FC = () => {
             if (startDate) url.searchParams.append('start_date', startDate);
             if (endDate) url.searchParams.append('end_date', endDate);
 
-            const headers: HeadersInit = {
-                'Content-Type': 'application/json',
-                ...(token ? { Authorization: `Bearer ${token}` } : {}),
-            };
-
-            const response = await fetch(url.toString(), { headers });
+            const response = await fetchWithAuth(url.toString());
             if (!response.ok) throw new Error('Network response was not ok');
             return response.json() as Promise<OrderResponse>;
         },
@@ -90,12 +86,8 @@ export const Orders: React.FC = () => {
 
     const updateStatusMutation = useMutation({
         mutationFn: async ({ id, status }: { id: number, status: number }) => {
-            const response = await fetch(endpoints.orders.updateStatus(id), {
+            const response = await fetchWithAuth(endpoints.orders.updateStatus(id), {
                 method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
                 body: JSON.stringify({ status })
             });
             if (!response.ok) throw new Error('Failed to update status');
@@ -111,12 +103,8 @@ export const Orders: React.FC = () => {
 
     const deleteOrderMutation = useMutation({
         mutationFn: async (id: number) => {
-            const response = await fetch(endpoints.orders.delete(id), {
-                method: 'DELETE',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                }
+            const response = await fetchWithAuth(endpoints.orders.delete(id), {
+                method: 'DELETE'
             });
             if (!response.ok) throw new Error('Failed to delete order');
             return response.json();

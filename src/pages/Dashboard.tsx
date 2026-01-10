@@ -4,6 +4,7 @@ import { DollarSign, ShoppingBag, Users, Activity, Loader2, ArrowUpRight, ArrowD
 import { useNavigate } from 'react-router-dom';
 import { SalesChart } from '../components/SalesChart';
 import { cn } from '../utils/cn';
+import { fetchWithAuth } from '../utils/apiClient';
 import { endpoints } from '../config';
 import { useAuth } from '../context/AuthContext';
 
@@ -59,9 +60,7 @@ export const Dashboard: React.FC = () => {
     const { data: dashboardData, isLoading, error } = useQuery({
         queryKey: ['dashboard'],
         queryFn: async () => {
-            const response = await fetch(endpoints.dashboard, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
+            const response = await fetchWithAuth(endpoints.dashboard);
             if (!response.ok) throw new Error('Failed to fetch dashboard data');
             const result = await response.json();
             return result.data as DashboardData;

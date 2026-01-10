@@ -4,6 +4,7 @@ import { endpoints } from '../config';
 import { useAuth } from '../context/AuthContext';
 import type { ActivityResponse } from '../types/activity';
 import { Activity as ActivityIcon, User, Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
+import { fetchWithAuth } from '../utils/apiClient';
 
 export const Activities: React.FC = () => {
     const { token } = useAuth();
@@ -17,15 +18,7 @@ export const Activities: React.FC = () => {
             url.searchParams.append('page', page.toString());
             url.searchParams.append('limit', limit.toString());
 
-            const response = await fetch(url.toString(), {
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
-            });
-
-            if (!response.ok) {
-                throw new Error('Failed to fetch activities');
-            }
+            const response = await fetchWithAuth(url.toString());
 
             return response.json() as Promise<ActivityResponse>;
         },

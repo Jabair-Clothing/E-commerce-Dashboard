@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { endpoints } from '../config';
 import { useAuth } from '../context/AuthContext';
+import { fetchWithAuth } from '../utils/apiClient';
 import type { OrderDetailsResponse } from '../types/order';
 import { VariantSelectionModal } from '../components/POS/VariantSelectionModal';
 import type { Product } from '../types/pos';
@@ -37,9 +38,7 @@ export const OrderDetails: React.FC = () => {
                 const url = new URL(endpoints.products.all);
                 url.searchParams.append('search', searchTerm);
                 url.searchParams.append('limit', '10');
-                const response = await fetch(url.toString(), {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
+                const response = await fetchWithAuth(url.toString());
                 const data = await response.json();
                 if (data?.data?.data) {
                     setSearchResults(data.data.data);
@@ -55,12 +54,8 @@ export const OrderDetails: React.FC = () => {
 
     const addProductMutation = useMutation({
         mutationFn: async (payload: { product_id: number; quantity: number; product_sku_id: number | null; price: string }) => {
-            const response = await fetch(endpoints.orders.addProduct(id!), {
+            const response = await fetchWithAuth(endpoints.orders.addProduct(id!), {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
                 body: JSON.stringify(payload)
             });
             if (!response.ok) throw new Error('Failed to add product');
@@ -114,12 +109,8 @@ export const OrderDetails: React.FC = () => {
 
     const removeProductMutation = useMutation({
         mutationFn: async (productId: number) => {
-            const response = await fetch(endpoints.orders.removeProduct(id!, productId), {
-                method: 'DELETE',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                }
+            const response = await fetchWithAuth(endpoints.orders.removeProduct(id!, productId), {
+                method: 'DELETE'
             });
             if (!response.ok) throw new Error('Failed to remove product');
             return response.json();
@@ -141,12 +132,8 @@ export const OrderDetails: React.FC = () => {
 
     const updateQuantityMutation = useMutation({
         mutationFn: async ({ productId, quantity }: { productId: number; quantity: number }) => {
-            const response = await fetch(endpoints.orders.updateQuantity(id!, productId), {
+            const response = await fetchWithAuth(endpoints.orders.updateQuantity(id!, productId), {
                 method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
                 body: JSON.stringify({ quantity })
             });
             if (!response.ok) throw new Error('Failed to update quantity');
@@ -167,12 +154,8 @@ export const OrderDetails: React.FC = () => {
 
     const updateStatusMutation = useMutation({
         mutationFn: async (status: number) => {
-            const response = await fetch(endpoints.orders.updateStatus(id!), {
+            const response = await fetchWithAuth(endpoints.orders.updateStatus(id!), {
                 method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
                 body: JSON.stringify({ status })
             });
             if (!response.ok) throw new Error('Failed to update status');
@@ -200,12 +183,7 @@ export const OrderDetails: React.FC = () => {
     const { data: apiResponse, isLoading, isError } = useQuery({
         queryKey: ['order', id],
         queryFn: async () => {
-            const response = await fetch(endpoints.orders.getById(id!), {
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                }
-            });
+            const response = await fetchWithAuth(endpoints.orders.getById(id!));
             if (!response.ok) throw new Error('Failed to fetch order details');
             return response.json() as Promise<OrderDetailsResponse>;
         },

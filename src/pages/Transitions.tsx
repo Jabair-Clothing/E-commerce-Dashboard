@@ -4,6 +4,7 @@ import { endpoints } from '../config';
 import { useAuth } from '../context/AuthContext';
 import type { TransitionResponse } from '../types/transition';
 import { Calendar, Filter, ChevronLeft, ChevronRight } from 'lucide-react';
+import { fetchWithAuth } from '../utils/apiClient';
 
 export const Transitions: React.FC = () => {
     const { token } = useAuth();
@@ -25,11 +26,7 @@ export const Transitions: React.FC = () => {
             if (startDate) url.searchParams.append('start_date', startDate);
             if (endDate) url.searchParams.append('end_date', endDate);
 
-            const response = await fetch(url.toString(), {
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
-            });
+            const response = await fetchWithAuth(url.toString());
 
             if (!response.ok) {
                 throw new Error('Failed to fetch transitions');

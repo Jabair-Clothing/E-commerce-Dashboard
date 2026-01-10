@@ -5,6 +5,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Loader2, MapPin, Mail, Phone, Calendar, ShoppingBag, CreditCard, DollarSign, Pencil, Trash2, X, Plus, Heart } from 'lucide-react';
 import { endpoints } from '../config';
 import { useAuth } from '../context/AuthContext';
+import { fetchWithAuth } from '../utils/apiClient';
 
 interface ShippingAddress {
     id: number;
@@ -64,10 +65,7 @@ export const ClientDetails: React.FC = () => {
     const { data: responseData, isLoading, error } = useQuery({
         queryKey: ['client', id],
         queryFn: async () => {
-            const response = await fetch(endpoints.clients.details(id!), {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            if (!response.ok) throw new Error('Failed to fetch client details');
+            const response = await fetchWithAuth(endpoints.clients.details(id!));
             return response.json();
         },
         enabled: !!token && !!id
@@ -75,9 +73,8 @@ export const ClientDetails: React.FC = () => {
 
     const deleteAddressMutation = useMutation({
         mutationFn: async (addressId: number) => {
-            const response = await fetch(endpoints.shippingAddresses.delete(addressId), {
+            const response = await fetchWithAuth(endpoints.shippingAddresses.delete(addressId), {
                 method: 'DELETE', // Assuming DELETE method based on standard REST, verify if API uses POST for delete if unsure
-                headers: { 'Authorization': `Bearer ${token}` }
             });
             // If response is not ok, throw error. Some APIs return 200 with success: false
             if (!response.ok) throw new Error('Failed to delete address');
@@ -94,12 +91,8 @@ export const ClientDetails: React.FC = () => {
 
     const createAddressMutation = useMutation({
         mutationFn: async (data: any) => {
-            const response = await fetch(endpoints.shippingAddresses.create, {
+            const response = await fetchWithAuth(endpoints.shippingAddresses.create, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
                 body: JSON.stringify({ ...data, User_id: id })
             });
             if (!response.ok) throw new Error('Failed to create address');
@@ -118,12 +111,8 @@ export const ClientDetails: React.FC = () => {
     const updateAddressMutation = useMutation({
         mutationFn: async (data: any) => {
             if (!editingId) return;
-            const response = await fetch(endpoints.shippingAddresses.update(editingId), {
+            const response = await fetchWithAuth(endpoints.shippingAddresses.update(editingId), {
                 method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
                 body: JSON.stringify(data)
             });
             if (!response.ok) throw new Error('Failed to update address');

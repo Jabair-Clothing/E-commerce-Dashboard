@@ -5,6 +5,7 @@ import { DataTable, type Column } from '../components/DataTable';
 import { Plus, Search, Star, MessageSquare, X, Check, ChevronsUpDown, Trash2 } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import { useAuth } from '../context/AuthContext';
+import { fetchWithAuth } from '../utils/apiClient';
 
 interface Rating {
     id: number;
@@ -67,12 +68,7 @@ export const Ratings = () => {
             if (statusFilter !== '') params.append('status', String(statusFilter));
             if (starFilter !== '') params.append('star', String(starFilter));
 
-            const response = await fetch(`${endpoints.ratings.all}?${params}`, {
-                headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`
-                }
-            });
-            if (!response.ok) throw new Error('Failed to fetch ratings');
+            const response = await fetchWithAuth(`${endpoints.ratings.all}?${params}`);
             return response.json();
         }
     });
@@ -81,11 +77,7 @@ export const Ratings = () => {
     const { data: productsData } = useQuery({
         queryKey: ['products', 'search', productSearch],
         queryFn: async () => {
-            const response = await fetch(endpoints.products.all, {
-                headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`
-                }
-            });
+            const response = await fetchWithAuth(endpoints.products.all);
             if (!response.ok) throw new Error('Failed to fetch products');
             const data = await response.json();
             const productsList = data.data?.data || [];
@@ -102,12 +94,8 @@ export const Ratings = () => {
     // Create Mutation
     const createMutation = useMutation({
         mutationFn: async (newRating: CreateRatingForm) => {
-            const response = await fetch(endpoints.ratings.create, {
+            const response = await fetchWithAuth(endpoints.ratings.create, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`
-                },
                 body: JSON.stringify({
                     ...newRating,
                     user_id: user?.id
@@ -132,11 +120,8 @@ export const Ratings = () => {
     // Toggle Status Mutation
     const toggleStatusMutation = useMutation({
         mutationFn: async (id: number) => {
-            const response = await fetch(endpoints.ratings.toggleStatus(id), {
+            const response = await fetchWithAuth(endpoints.ratings.toggleStatus(id), {
                 method: 'PATCH',
-                headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`
-                }
             });
             if (!response.ok) throw new Error('Failed to toggle status');
             return response.json();
@@ -150,11 +135,8 @@ export const Ratings = () => {
     // Delete Mutation
     const deleteMutation = useMutation({
         mutationFn: async (id: number) => {
-            const response = await fetch(endpoints.ratings.delete(id), {
+            const response = await fetchWithAuth(endpoints.ratings.delete(id), {
                 method: 'DELETE',
-                headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`
-                }
             });
             if (!response.ok) throw new Error('Failed to delete rating');
             return response.json();

@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { Save } from 'lucide-react';
 import { endpoints } from '../config';
+import { fetchWithAuth } from '../utils/apiClient';
 
 interface OrderInfo {
     inside_dhaka: string;
@@ -20,18 +21,12 @@ interface OrderInfoInput {
 
 export const Settings: React.FC = () => {
     const queryClient = useQueryClient();
-    const token = localStorage.getItem('token');
     const { register, handleSubmit, setValue, formState: { errors } } = useForm<OrderInfoInput>();
 
     const { data: orderInfo, isLoading, error } = useQuery({
         queryKey: ['orderInfo'],
         queryFn: async () => {
-            const response = await fetch(endpoints.orderInfo.get, {
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Accept': 'application/json',
-                },
-            });
+            const response = await fetchWithAuth(endpoints.orderInfo.get);
             if (!response.ok) throw new Error('Failed to fetch order info');
             const result = await response.json();
             return result.data as OrderInfo;
@@ -50,13 +45,8 @@ export const Settings: React.FC = () => {
 
     const mutation = useMutation({
         mutationFn: async (data: OrderInfoInput) => {
-            const response = await fetch(endpoints.orderInfo.update, {
+            const response = await fetchWithAuth(endpoints.orderInfo.update, {
                 method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`,
-                    'Accept': 'application/json',
-                },
                 body: JSON.stringify(data),
             });
             if (!response.ok) throw new Error('Failed to update settings');

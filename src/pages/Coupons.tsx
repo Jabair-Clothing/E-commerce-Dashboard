@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, Search, Trash2, X, Check, ChevronsUpDown, Edit } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import { endpoints } from '../config';
+import { fetchWithAuth } from '../utils/apiClient';
 
 interface Product {
     id: number;
@@ -24,7 +25,7 @@ interface Coupon {
     end_date: string | null;
     status: number;
     products?: { id: number; name: string }[];
-    items?: { id: number; name: string }[]; 
+    items?: { id: number; name: string }[];
     total_orders?: number;
     total_sales?: number;
 }
@@ -76,11 +77,7 @@ export const Coupons = () => {
                 limit: '10',
                 search
             });
-            const response = await fetch(`${endpoints.coupons.all}?${params}`, {
-                headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`
-                }
-            });
+            const response = await fetchWithAuth(`${endpoints.coupons.all}?${params}`);
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({}));
                 throw new Error(errorData.message || `Error ${response.status}: ${response.statusText}`);
@@ -93,11 +90,7 @@ export const Coupons = () => {
     const { data: productsData } = useQuery({
         queryKey: ['products', 'search', productSearch],
         queryFn: async () => {
-            const response = await fetch(endpoints.products.all, {
-                headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`
-                }
-            });
+            const response = await fetchWithAuth(endpoints.products.all);
             if (!response.ok) throw new Error('Failed to fetch products');
             const data = await response.json();
             const productsList = data.data?.data || [];
@@ -114,12 +107,8 @@ export const Coupons = () => {
     // Mutations
     const createMutation = useMutation({
         mutationFn: async (newCoupon: CreateCouponForm) => {
-            const response = await fetch(endpoints.coupons.create, {
+            const response = await fetchWithAuth(endpoints.coupons.create, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`
-                },
                 body: JSON.stringify({
                     ...newCoupon,
                     amount: Number(newCoupon.amount),
@@ -149,12 +138,8 @@ export const Coupons = () => {
     const updateMutation = useMutation({
         mutationFn: async (data: CreateCouponForm) => {
             if (!editId) throw new Error('No edit ID');
-            const response = await fetch(endpoints.coupons.update(editId), {
+            const response = await fetchWithAuth(endpoints.coupons.update(editId), {
                 method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`
-                },
                 body: JSON.stringify({
                     code: data.code,
                     amount: Number(data.amount),
@@ -182,11 +167,8 @@ export const Coupons = () => {
 
     const toggleStatusMutation = useMutation({
         mutationFn: async (id: number) => {
-            const response = await fetch(endpoints.coupons.toggleStatus(id), {
+            const response = await fetchWithAuth(endpoints.coupons.toggleStatus(id), {
                 method: 'PATCH',
-                headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`
-                }
             });
             if (!response.ok) throw new Error('Failed to toggle status');
             return response.json();
@@ -199,11 +181,8 @@ export const Coupons = () => {
 
     const deleteMutation = useMutation({
         mutationFn: async (id: number) => {
-            const response = await fetch(endpoints.coupons.delete(id), {
+            const response = await fetchWithAuth(endpoints.coupons.delete(id), {
                 method: 'DELETE',
-                headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`
-                }
             });
             if (!response.ok) throw new Error('Failed to delete coupon');
             return response.json();

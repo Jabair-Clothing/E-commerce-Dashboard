@@ -5,18 +5,11 @@ import { cn } from '../utils/cn';
 
 const sidebarItems = [
     { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
-    { icon: ClipboardList, label: 'Orders', path: '/orders' },
     { icon: ShoppingBag, label: 'Products', path: '/products' },
     { icon: Layers, label: 'Categories', path: '/categories' },
     { icon: Settings2, label: 'Attributes', path: '/attributes' },
-    { icon: Ticket, label: 'Coupons', path: '/coupons' },
-    { icon: Star, label: 'Ratings', path: '/ratings' },
     { icon: Users, label: 'Clients', path: '/clients' },
-    { icon: ClipboardList, label: 'Transitions', path: '/transitions' },
-    { icon: Activity, label: 'Activities', path: '/activities' },
     { icon: MessageSquare, label: 'Contacts', path: '/contacts' },
-    { icon: BarChart3, label: 'Reports', path: '/reports' },
-    { icon: Settings, label: 'Settings', path: '/settings' },
 ];
 
 import { useAuth } from '../context/AuthContext';

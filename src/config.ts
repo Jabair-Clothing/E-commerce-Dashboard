@@ -32,36 +32,6 @@ export const endpoints = {
             update: (productId: number | string, imageId: number | string) => `${API_BASE_URL}/products/${productId}/images/${imageId}`,
         }
     },
-    coupons: {
-        all: `${API_BASE_URL}/coupons`,
-        create: `${API_BASE_URL}/coupons`,
-        toggleStatus: (id: number | string) => `${API_BASE_URL}/coupons/toggle-status/${id}`,
-        delete: (id: number | string) => `${API_BASE_URL}/coupons/${id}`,
-        update: (id: number | string) => `${API_BASE_URL}/coupons/${id}`,
-    },
-    ratings: {
-        all: `${API_BASE_URL}/ratings`,
-        create: `${API_BASE_URL}/ratings`,
-        toggleStatus: (id: number | string) => `${API_BASE_URL}/ratings/toggle-status/${id}`,
-        addSku: (id: string | number) => `${API_BASE_URL}/products/${id}/skus`,
-        deleteSku: (id: string | number) => `${API_BASE_URL}/product-skus/${id}`,
-        deleteImage: (id: number | string) => `${API_BASE_URL}/product-images/${id}`,
-        delete: (id: number | string) => `${API_BASE_URL}/ratings/${id}`,
-    },
-    orderInfo: {
-        get: `${API_BASE_URL}/orderinfo`,
-        update: `${API_BASE_URL}/orderinfo`,
-    },
-    orders: {
-        all: `${API_BASE_URL}/orders`,
-        place: `${API_BASE_URL}/orders/place-order`,
-        updateStatus: (id: number | string) => `${API_BASE_URL}/orders/update-status/${id}`,
-        delete: (id: number | string) => `${API_BASE_URL}/orders/${id}`,
-        getById: (id: number | string) => `${API_BASE_URL}/orders/${id}`,
-        addProduct: (id: number | string) => `${API_BASE_URL}/orders/add-product/${id}`,
-        removeProduct: (orderId: number | string, productId: number | string) => `${API_BASE_URL}/orders/products/${orderId}/remove/${productId}`,
-        updateQuantity: (orderId: number | string, productId: number | string) => `${API_BASE_URL}/orders/products/${orderId}/update-quantity/${productId}`,
-    },
     clients: {
         all: `${API_BASE_URL}/clints`,
         details: (id: number | string) => `${API_BASE_URL}/clints/all-info/${id}`,
@@ -71,26 +41,8 @@ export const endpoints = {
         update: (id: number | string) => `${API_BASE_URL}/shipping-addresses/${id}`,
         delete: (id: number | string) => `${API_BASE_URL}/shipping-addresses/${id}`,
     },
-    transitions: {
-        all: `${API_BASE_URL}/transiions`,
-    },
-    activities: {
-        all: `${API_BASE_URL}/activitys`,
-    },
-    payments: {
-        updateStatus: (id: number | string) => `${API_BASE_URL}/payments/update-status/${id}`,
-        updatePaidAmount: (id: number | string) => `${API_BASE_URL}/payments/update-paid-amount/${id}`,
-    },
     contacts: {
         all: `${API_BASE_URL}/contact`,
         delete: (id: number | string) => `${API_BASE_URL}/contact/${id}`,
     },
-    reports: {
-        overview: `${API_BASE_URL}/reports/overview`,
-        sales: `${API_BASE_URL}/reports/sales`,
-        receivables: `${API_BASE_URL}/reports/receivables`,
-        bestSellers: `${API_BASE_URL}/reports/best-sellers`,
-        coupons: `${API_BASE_URL}/reports/coupons`,
-        wishlists: `${API_BASE_URL}/reports/wishlists`,
-    }
 };

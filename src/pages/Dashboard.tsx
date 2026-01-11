@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { DollarSign, ShoppingBag, Users, Activity, Loader2, ArrowUpRight, ArrowDownRight, Clock } from 'lucide-react';
+import { DollarSign, ShoppingBag, Users, Activity, Loader2, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { SalesChart } from '../components/SalesChart';
 import { cn } from '../utils/cn';
 import { fetchWithAuth } from '../utils/apiClient';
 import { endpoints } from '../config';
@@ -54,7 +53,6 @@ interface DashboardData {
 
 export const Dashboard: React.FC = () => {
     const { token } = useAuth();
-    const navigate = useNavigate();
     const [timeRange, setTimeRange] = useState('Last 7 days');
 
     const { data: dashboardData, isLoading, error } = useQuery({
@@ -89,8 +87,8 @@ export const Dashboard: React.FC = () => {
     const stats = [
         {
             label: 'Total Revenue',
-            value: `৳${Number(data.total_revenue).toLocaleString()}`,
-            change: `+৳${Number(data.today_revenue).toLocaleString()} today`, // Showing today's revenue as change for now
+            value: `\u09F3${Number(data.total_revenue).toLocaleString()} `,
+            change: `+\u09F3${Number(data.today_revenue).toLocaleString()} today`, // Showing today's revenue as change for now
             icon: DollarSign,
             color: 'text-green-600',
             bg: 'bg-green-100',
@@ -99,7 +97,7 @@ export const Dashboard: React.FC = () => {
         {
             label: 'Total Orders',
             value: data.total_order_count.toLocaleString(),
-            change: `+${data.today_order_count} today`,
+            change: `+ ${data.today_order_count} today`,
             icon: ShoppingBag,
             color: 'text-blue-600',
             bg: 'bg-blue-100',
@@ -116,7 +114,7 @@ export const Dashboard: React.FC = () => {
         },
         {
             label: 'Total Due',
-            value: `৳${data.due_orders.total_due_amount.toLocaleString()}`,
+            value: `\u09F3${data.due_orders.total_due_amount.toLocaleString()}`,
             change: `${data.due_orders.count} orders`,
             icon: Activity,
             color: 'text-amber-600',
@@ -165,108 +163,9 @@ export const Dashboard: React.FC = () => {
                 ))}
             </div>
 
-            <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-                <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-gray-200 lg:col-span-2">
-                    <div className="mb-6 flex items-center justify-between">
-                        <h2 className="text-lg font-bold text-gray-900">Revenue Analytics</h2>
-                    </div>
-                    <SalesChart data={data.charts.revenue_last_7_days} />
-                </div>
-
-                <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-gray-200 flex flex-col">
-                    <h2 className="text-lg font-bold text-gray-900 mb-4">Recent Activity</h2>
-                    <div className="flex-1 overflow-y-auto pr-2 space-y-4 max-h-[300px]">
-                        {data.recent_orders.length === 0 ? (
-                            <p className="text-sm text-gray-500 text-center py-4">No recent activity</p>
-                        ) : (
-                            data.recent_orders.map((order) => (
-                                <div key={order.order_id} className="flex items-start gap-4 p-3 rounded-lg hover:bg-gray-50 transition-colors border border-transparent hover:border-gray-100">
-                                    <div className="h-10 w-10 rounded-full bg-primary-100 flex items-center justify-center flex-shrink-0 text-primary-600 font-bold text-xs shadow-sm">
-                                        {order.invoice_code.replace('ZT', '')}
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                        <p className="text-sm font-semibold text-gray-900 truncate">
-                                            New order by {order.customer_name}
-                                        </p>
-                                        <p className="text-xs text-gray-500 flex items-center gap-1 mt-1">
-                                            <Clock className="h-3 w-3" />
-                                            {order.time_ago}
-                                        </p>
-                                    </div>
-                                    <span className="text-sm font-bold text-gray-900 whitespace-nowrap">
-                                        ৳{Number(order.total_amount).toLocaleString()}
-                                    </span>
-                                </div>
-                            ))
-                        )}
-                    </div>
-                    <div className="mt-4 pt-4 border-t border-gray-100">
-                        <button
-                            onClick={() => navigate('/orders')}
-                            className="w-full py-2 text-sm text-primary-600 font-medium hover:bg-primary-50 rounded-lg transition-colors"
-                        >
-                            View All Orders
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            {/* Recent/Due Orders Table */}
-            <div className="bg-white rounded-xl shadow-sm ring-1 ring-gray-200 overflow-hidden">
-                <div className="p-6 border-b border-gray-200 flex justify-between items-center bg-gray-50">
-                    <h2 className="text-lg font-bold text-gray-900">Due Orders</h2>
-                    <span className="text-xs font-medium px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800">
-                        {data.due_orders.count} Pending
-                    </span>
-                </div>
-                <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200">
-                        <thead className="bg-gray-50">
-                            <tr>
-                                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Invoice</th>
-                                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Customer</th>
-                                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Date</th>
-                                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Due Amount</th>
-                                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
-                            </tr>
-                        </thead>
-                        <tbody className="bg-white divide-y divide-gray-200">
-                            {data.due_orders.list.slice(0, 5).map((order) => (
-                                <tr
-                                    key={order.order_id}
-                                    className="hover:bg-gray-50 transition-colors cursor-pointer"
-                                    onClick={() => navigate(`/orders/${order.order_id}`)}
-                                >
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-primary-600">
-                                        #{order.invoice_code}
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                        {order.user_name}
-                                        <div className="text-xs text-gray-500">{order.user_phone}</div>
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                        {order.placed_human}
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-red-600 font-medium">
-                                        ৳{Number(order.due_amount).toLocaleString()}
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-                                            Due
-                                        </span>
-                                    </td>
-                                </tr>
-                            ))}
-                            {data.due_orders.list.length === 0 && (
-                                <tr>
-                                    <td colSpan={5} className="px-6 py-8 text-center text-sm text-gray-500">
-                                        No pending due orders found.
-                                    </td>
-                                </tr>
-                            )}
-                        </tbody>
-                    </table>
-                </div>
+            <div className="p-12 text-center bg-white rounded-xl shadow-sm border border-gray-200">
+                <h3 className="text-lg font-medium text-gray-900">Welcome to ShopAdmin</h3>
+                <p className="mt-2 text-gray-500">Select an item from the sidebar to get started.</p>
             </div>
         </div>
     );

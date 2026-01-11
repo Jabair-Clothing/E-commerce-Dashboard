@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, ShoppingBag, Layers, LogOut, Package, Settings2, Ticket, Star, Settings, ClipboardList, Users, Activity, MessageSquare, BarChart3 } from 'lucide-react';
+import { LayoutDashboard, ShoppingBag, Layers, LogOut, Package, Settings2, Users, MessageSquare } from 'lucide-react';
 import { cn } from '../utils/cn';
 
 const sidebarItems = [
@@ -43,7 +43,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                 <div className="flex h-16 items-center justify-center border-b border-gray-200">
                     <div className="flex items-center gap-2 font-bold text-xl text-primary-600">
                         <Package className="h-8 w-8" />
-                        <span>ShopAdmin</span>
+                        <span>jabaibgroup admin</span>
                     </div>
                 </div>
 

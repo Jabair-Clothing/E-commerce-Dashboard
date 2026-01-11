@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { DollarSign, ShoppingBag, Users, Activity, Loader2, ArrowUpRight, ArrowDownRight } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
 import { cn } from '../utils/cn';
 import { fetchWithAuth } from '../utils/apiClient';
 import { endpoints } from '../config';

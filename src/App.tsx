@@ -40,7 +40,7 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <Router>
+        <Router basename={import.meta.env.BASE_URL}>
           <Suspense fallback={<LoadingSpinner />}>
             <Routes>
               <Route path="/login" element={<Login />} />
